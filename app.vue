@@ -1,27 +1,42 @@
 <template>
   <v-btn>Hans Here</v-btn>
   <v-icon>mdi-wifi-alert</v-icon>
+  <div>
   <canvas id="glcanvas" ref="glcanvas"></canvas>
-
+</div>
   <!--div>
     <NuxtWelcome />
   </!--div-->
 </template>
 <script lang="ts" setup>
-import { PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { Color, PerspectiveCamera, Scene, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, TorusGeometry } from "three";
 const glcanvas: Ref<HTMLCanvasElement | null> = ref(null);
-const camera = new PerspectiveCamera(60, 4 / 3, 0.5, 500);
-// camera.updateProjectionMatrix()
+let camera: PerspectiveCamera
 const scene = new Scene();
-camera.position.z = 100;
+scene.background = new Color('skyblue')
+
 let animationFrameHandle: number | null = null;
+
+const geometry = new BoxGeometry(2,2,2)
+const material = new MeshBasicMaterial({color: '#433F81'})
+const cube = new Mesh(geometry, material)
+
+const torusGeometry = new TorusGeometry(26, 3, 10)
+const torusMaterial = new MeshBasicMaterial({color: 'black'})
+const tire = new Mesh(torusGeometry, torusMaterial)
+scene.add(cube)
+scene.add(tire)
 let renderer: WebGLRenderer;
 onMounted(() => {
   console.debug("Canvas at", glcanvas.value)
-  renderer = new WebGLRenderer({
+  const canvasHeight = glcanvas.value!.clientHeight
+  const canvasWidth = glcanvas.value!.clientWidth
+  camera = new PerspectiveCamera(45, canvasWidth/canvasHeight, 0.1, 1000);
+  camera.position.set(0,0,100);  renderer = new WebGLRenderer({
     canvas: glcanvas.value!,
+    antialias: true,
   });
-  renderer.setSize(450, 300)
+  renderer.setSize(glcanvas.value?.clientWidth ?? 450, glcanvas.value?.clientHeight ?? 300)
   
   renderer.setClearColor(0xffff00, 1);
   updateGraphics();
@@ -32,6 +47,8 @@ onBeforeUnmount(() => {
 });
 function updateGraphics() {
   renderer.render(scene, camera);
+  cube.rotation.x += 0.01
+  cube.rotation.y += 0.01
   animationFrameHandle = requestAnimationFrame(() => updateGraphics());
 }
 // import Algebra from 'ts-geometric-algebra';
@@ -43,7 +60,7 @@ function updateGraphics() {
 // console.log("I'm here")
 </script>
 <style lang="scss">
-@use "./settings";
+// @use "./settings";
 
 #glcanvas {
   width: 450px;
