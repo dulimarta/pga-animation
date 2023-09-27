@@ -28,17 +28,25 @@ const scene = new Scene();
 scene.add(new AmbientLight());
 scene.background = new Color("skyblue");
 let animationFrameHandle: number | null = null;
+let tireSpeed = 20 /* RPM */
+let tireSpeedRadsPerSecond = Math.PI * tireSpeed / 30 
+let tireAngle = 0;
+let tirePosition = 0
+let previousTimeStamp = 0;
 
 const geometry = new BoxGeometry(2, 2, 2);
 const material = new MeshBasicMaterial({ color: "#433F81" });
 const cube = new Mesh(geometry, material);
 
-scene.add(makeTire(26, 3));
+const bikeFrame = new Group()
+const tire = makeTire(26, 3)
+bikeFrame.add(tire)
+scene.add(bikeFrame);
 let renderer: WebGLRenderer;
 onMounted(async () => {
   const marbleTexture = await textureLoader.loadAsync("marble.jpg");
   console.debug("Texture", marbleTexture);
-  const groundPlane = new PlaneGeometry(500, 500);
+  const groundPlane = new PlaneGeometry(1000, 1000);
   const groundMaterial = new MeshBasicMaterial({
     map: marbleTexture,
   });
@@ -51,6 +59,7 @@ onMounted(async () => {
   camera = new PerspectiveCamera(45, canvasWidth / canvasHeight, 0.1, 1000);
   camera.position.set(0, 65, 120);
   camera.lookAt(0, 0, 0);
+  bikeFrame.add(camera)
   renderer = new WebGLRenderer({
     canvas: glcanvas.value!,
     antialias: true,
@@ -61,17 +70,32 @@ onMounted(async () => {
   );
 
   renderer.setClearColor(0xffff00, 1);
-  updateGraphics();
+  updateGraphics(0);
 });
 
 onBeforeUnmount(() => {
   if (animationFrameHandle != null) cancelAnimationFrame(animationFrameHandle);
 });
-function updateGraphics() {
+
+function run_integrator(timeStamp: number /* in milliseconds */) {
+  const elapsed = (timeStamp - previousTimeStamp)/1000
+  tireAngle = tireAngle + tireSpeedRadsPerSecond * elapsed
+  tirePosition = -tireAngle * 27.5
+  console.log("Tirepos", tirePosition)
+  if (Math.abs(tirePosition) > 500) {
+    tireSpeedRadsPerSecond *= -1
+  }
+  previousTimeStamp = timeStamp
+
+}
+function updateGraphics(timeStamp: number) {
+  run_integrator(timeStamp)
+  tire.rotation.z = tireAngle
+  bikeFrame.position.x = tirePosition
   renderer.render(scene, camera);
   cube.rotation.x += 0.01;
   cube.rotation.y += 0.01;
-  animationFrameHandle = requestAnimationFrame(() => updateGraphics());
+  animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
 }
 // import Algebra from 'ts-geometric-algebra';
 

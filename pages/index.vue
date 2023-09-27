@@ -3,5 +3,4 @@
   <ClientOnly>
     <ThreeCanvas />
   </ClientOnly>
-  <div>After component</div>
 </template>
