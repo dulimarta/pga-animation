@@ -19,8 +19,9 @@ export default defineNuxtConfig({
           styles: { configFile: resolve('./settings.scss') },
         })
       )
-    },
-  }
+    }
+  },
+  modules: ["@pinia/nuxt"]
   // vite: {
   //   define: {
   //     'process.env.DEBUG': false,

@@ -21,15 +21,19 @@ import {
   TextureLoader,
   AmbientLight,
 } from "three";
+import { usePGAStore } from "~/store/pga-store"
+import {storeToRefs} from "pinia"
 const glcanvas: Ref<HTMLCanvasElement | null> = ref(null);
+const PGAStore = usePGAStore()
 let camera: PerspectiveCamera;
 const textureLoader = new TextureLoader();
 const scene = new Scene();
 scene.add(new AmbientLight());
 scene.background = new Color("skyblue");
 let animationFrameHandle: number | null = null;
-let tireSpeed = 20 /* RPM */
-let tireSpeedRadsPerSecond = Math.PI * tireSpeed / 30 
+let { tireSpeed } = storeToRefs(PGAStore)
+let speedFlipFactor = 1
+const tireSpeedRadsPerSecond = computed(() => Math.PI * tireSpeed.value / 30) 
 let tireAngle = 0;
 let tirePosition = 0
 let previousTimeStamp = 0;
@@ -79,11 +83,12 @@ onBeforeUnmount(() => {
 
 function run_integrator(timeStamp: number /* in milliseconds */) {
   const elapsed = (timeStamp - previousTimeStamp)/1000
-  tireAngle = tireAngle + tireSpeedRadsPerSecond * elapsed
+  tireAngle = tireAngle + speedFlipFactor *
+    tireSpeedRadsPerSecond.value * elapsed
   tirePosition = -tireAngle * 27.5
   console.log("Tirepos", tirePosition)
   if (Math.abs(tirePosition) > 500) {
-    tireSpeedRadsPerSecond *= -1
+    speedFlipFactor *= -1
   }
   previousTimeStamp = timeStamp
 
