@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 export const usePGAStore = defineStore('pga', () => {
-  const tireSpeed = ref(5) /* RPM */
+  const driveWheelSpeed = ref(10) /* RPM */
 
-  return {tireSpeed}
+  return {driveWheelSpeed}
 })

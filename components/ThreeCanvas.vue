@@ -28,19 +28,20 @@ const PGAStore = usePGAStore()
 let camera: PerspectiveCamera;
 const textureLoader = new TextureLoader();
 const scene = new Scene();
+scene.add(new AxesHelper(12))
 scene.add(new AmbientLight());
-scene.background = new Color("skyblue");
+// scene.background = new Color("skyblue");
 let animationFrameHandle: number | null = null;
-let { tireSpeed } = storeToRefs(PGAStore)
+let { driveWheelSpeed } = storeToRefs(PGAStore)
 let speedFlipFactor = 1
-const tireSpeedRadsPerSecond = computed(() => Math.PI * tireSpeed.value / 30) 
+const tireSpeedRadsPerSecond = computed(() => Math.PI * driveWheelSpeed.value / 30) 
 let tireAngle = 0;
 let tirePosition = 0
 let previousTimeStamp = 0;
 
-const geometry = new BoxGeometry(2, 2, 2);
-const material = new MeshBasicMaterial({ color: "#433F81" });
-const cube = new Mesh(geometry, material);
+// const geometry = new BoxGeometry(2, 2, 2);
+// const material = new MeshBasicMaterial({ color: "#433F81" });
+// const cube = new Mesh(geometry, material);
 
 const bikeFrame = new Group()
 const tire = makeTire(26, 3)
@@ -50,18 +51,20 @@ let renderer: WebGLRenderer;
 onMounted(async () => {
   const marbleTexture = await textureLoader.loadAsync("marble.jpg");
   console.debug("Texture", marbleTexture);
-  const groundPlane = new PlaneGeometry(1000, 1000);
+  const groundPlane = new PlaneGeometry(1000, 1000, 100, 100);
   const groundMaterial = new MeshBasicMaterial({
     map: marbleTexture,
   });
   const ground = new Mesh(groundPlane, groundMaterial);
-  ground.rotateX(-Math.PI / 2);
+  // ground.add(new AxesHelper(6))
+  ground.rotateX(0)
   scene.add(ground);
   console.debug("Canvas at", glcanvas.value);
   const canvasHeight = glcanvas.value!.clientHeight;
   const canvasWidth = glcanvas.value!.clientWidth;
   camera = new PerspectiveCamera(45, canvasWidth / canvasHeight, 0.1, 1000);
-  camera.position.set(0, 65, 120);
+  camera.position.set(100, 100, 80);
+  camera.up.set(0,0,1)
   camera.lookAt(0, 0, 0);
   bikeFrame.add(camera)
   renderer = new WebGLRenderer({
@@ -85,8 +88,8 @@ function run_integrator(timeStamp: number /* in milliseconds */) {
   const elapsed = (timeStamp - previousTimeStamp)/1000
   tireAngle = tireAngle + speedFlipFactor *
     tireSpeedRadsPerSecond.value * elapsed
-  tirePosition = -tireAngle * 27.5
-  console.log("Tirepos", tirePosition)
+  tirePosition = -tireAngle * 29
+  // console.log("Tirepos", tirePosition)
   if (Math.abs(tirePosition) > 500) {
     speedFlipFactor *= -1
   }
@@ -98,8 +101,8 @@ function updateGraphics(timeStamp: number) {
   tire.rotation.z = tireAngle
   bikeFrame.position.x = tirePosition
   renderer.render(scene, camera);
-  cube.rotation.x += 0.01;
-  cube.rotation.y += 0.01;
+  // cube.rotation.x += 0.01;
+  // cube.rotation.y += 0.01;
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
 }
 // import Algebra from 'ts-geometric-algebra';
@@ -113,7 +116,8 @@ function updateGraphics(timeStamp: number) {
 function makeTire(tireRadius: number, tubeRadius: number): Group {
   const NUM_SPOKES = 6;
   const tireGroup = new Group();
-  tireGroup.translateY(tubeRadius + tireRadius);
+  tireGroup.translateZ(tubeRadius + tireRadius);
+  tireGroup.rotateX(Math.PI / 2)
   // tireGroup.add(new AxesHelper(10))
   const torusGeometry = new TorusGeometry(tireRadius, tubeRadius, 10);
   const torusMaterial = new MeshBasicMaterial({ color: "black" });
