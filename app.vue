@@ -1,6 +1,6 @@
 <template>
-  <v-btn>Hans Here</v-btn>
-  <v-icon>mdi-wifi-alert</v-icon>
+  <!-- <v-btn>Hans Here</v-btn>
+  <v-icon>mdi-wifi-alert</v-icon> -->
   <NuxtPage/>
 </template>
 <script lang="ts" setup>
