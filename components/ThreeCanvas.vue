@@ -22,8 +22,15 @@ import {
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
+import { mul } from "ts-geometric-algebra";
 const glcanvas: Ref<HTMLCanvasElement | null> = ref(null);
 const PGAStore = usePGAStore();
+const TIRE_RADIUS = 13
+const TIRE_TUBE_RADIUS = 1.5
+const WHEEL_BASE = 48 // inches
+
+const WHEEL_RADIUS = TIRE_RADIUS + TIRE_TUBE_RADIUS
+
 let camera: PerspectiveCamera;
 const textureLoader = new TextureLoader();
 const scene = new Scene();
@@ -33,11 +40,18 @@ scene.add(new AmbientLight());
 let animationFrameHandle: number | null = null;
 let { driveWheelSpeed, steerAngle } = storeToRefs(PGAStore);
 let speedFlipFactor = 1;
-const tireSpeedRadsPerSecond = computed(
+let bodyRotation = 0
+let bodyXPosition = 0
+let bodyYPosition = 0
+const driveAngularVelocity = computed(
+  // 2 * PI * RotationPerMinute / 60 radians/second
   () => (Math.PI * driveWheelSpeed.value) / 30
 );
+const tanSteerAngle = computed(() =>
+  Math.tan(Math.PI * steerAngle.value/180)
+)
 let tireAngle = 0;
-let tirePosition = 0;
+// let tirePosition = 0;
 let previousTimeStamp = 0;
 
 let renderer: WebGLRenderer;
@@ -46,10 +60,11 @@ let driveWheel: Group
 let steeringWheel:Group
 onMounted(async () => {
   const marbleTexture = await textureLoader.loadAsync("marble.jpg");
-  console.debug("Texture", marbleTexture);
+  // console.debug("Texture", marbleTexture);
   const groundPlane = new PlaneGeometry(1000, 1000, 100, 100);
   const groundMaterial = new MeshBasicMaterial({
     map: marbleTexture,
+    // color: 'blue'
   });
   const ground = new Mesh(groundPlane, groundMaterial);
   // ground.add(new AxesHelper(6))
@@ -85,11 +100,20 @@ onBeforeUnmount(() => {
 
 function run_integrator(timeStamp: number /* in milliseconds */) {
   const elapsed = (timeStamp - previousTimeStamp) / 1000;
+  const bodyAngularVelocity = WHEEL_RADIUS / WHEEL_BASE * tanSteerAngle.value * driveAngularVelocity.value
+  const bodyLinearVelocity = WHEEL_RADIUS * driveAngularVelocity.value
+  bodyRotation += bodyAngularVelocity * elapsed
+  if (Math.abs(bodyAngularVelocity) < 1e-6) {
+    bodyXPosition += Math.cos(bodyRotation) * elapsed * bodyLinearVelocity
+    bodyYPosition -= Math.sin(bodyRotation) * elapsed * bodyLinearVelocity
+  } else {
+    const multiplier = bodyLinearVelocity / bodyAngularVelocity
+    bodyXPosition += multiplier * (Math.sin(bodyRotation + elapsed * bodyAngularVelocity) - Math.sin(bodyRotation))
+    bodyYPosition -= multiplier * (-Math.cos(bodyRotation + elapsed * bodyAngularVelocity) + Math.cos(bodyRotation))
+  }
   tireAngle =
-    tireAngle + speedFlipFactor * tireSpeedRadsPerSecond.value * elapsed;
-  tirePosition = -tireAngle * 29;
-  // console.log("Tirepos", tirePosition)
-  if (Math.abs(tirePosition) > 500) {
+    tireAngle - speedFlipFactor * driveAngularVelocity.value * elapsed;
+  if (Math.abs(bodyXPosition) > 500 || Math.abs(bodyYPosition) > 500) {
     speedFlipFactor *= -1;
   }
   previousTimeStamp = timeStamp;
@@ -97,9 +121,11 @@ function run_integrator(timeStamp: number /* in milliseconds */) {
 function updateGraphics(timeStamp: number) {
   run_integrator(timeStamp);
   driveWheel.rotation.z = tireAngle
-  driveWheel.rotation.y = -steerAngle.value * Math.PI/180
   steeringWheel.rotation.z = tireAngle
-  bike.position.x = tirePosition;
+  steeringWheel.rotation.y = -steerAngle.value * Math.PI/180
+  bike.position.x = bodyXPosition;
+  bike.position.y = bodyYPosition
+  bike.rotation.z = -bodyRotation
   renderer.render(scene, camera);
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
 }
@@ -112,15 +138,17 @@ function updateGraphics(timeStamp: number) {
 // console.log("I'm here")
 
 function makeBike(): Group {
-  const WHEEL_BASE = 48 // inches
   const bikeFrame = new Group();
   bikeFrame.add(new AxesHelper(24))
-  driveWheel = makeTire(13, 1.5);
-  driveWheel.translateX(-WHEEL_BASE/2)
-  steeringWheel = makeTire(13, 1.5)
-  steeringWheel.translateX(WHEEL_BASE / 2)  
+  // X-positive is forward travel direction
+  driveWheel = makeTire(TIRE_RADIUS, TIRE_TUBE_RADIUS);
+  driveWheel.position.x = -WHEEL_BASE/2
   bikeFrame.add(driveWheel);
+  steeringWheel = makeTire(TIRE_RADIUS, TIRE_TUBE_RADIUS)
+  steeringWheel.translateX(WHEEL_BASE / 2)  
   bikeFrame.add(steeringWheel)
+  bikeFrame.rotation.z = Math.PI/4
+  // bikeFrame.position.x = 10
   return bikeFrame;
 }
 function makeTire(tireRadius: number, tubeRadius: number): Group {
@@ -128,7 +156,7 @@ function makeTire(tireRadius: number, tubeRadius: number): Group {
   const tireGroup = new Group();
   tireGroup.translateZ(tubeRadius + tireRadius);
   tireGroup.rotateX(Math.PI / 2);
-  // tireGroup.add(new AxesHelper(10))
+  tireGroup.add(new AxesHelper(10))
   const torusGeometry = new TorusGeometry(tireRadius, tubeRadius, 10);
   const torusMaterial = new MeshBasicMaterial({ color: "black" });
   const tire = new Mesh(torusGeometry, torusMaterial);

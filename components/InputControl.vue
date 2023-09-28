@@ -12,7 +12,7 @@
       v-model="steerAngle"
       :min="-50"
       :max="50"
-      :step=".5"
+      :step="1"
       :label="`Steer Angle (${steerAngle.toFixed(1)} deg)`"
     />
 
