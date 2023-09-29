@@ -22,7 +22,7 @@ export default defineNuxtConfig({
     }
   },
   modules: ["@pinia/nuxt"],
-  ssr: true,
+  ssr: false,
   // vite: {
   //   define: {
   //     'process.env.DEBUG': false,
