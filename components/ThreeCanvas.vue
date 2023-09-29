@@ -20,6 +20,15 @@ import {
   PlaneGeometry,
   TextureLoader,
   AmbientLight,
+RepeatWrapping,
+PointLight,
+PointLightHelper,
+MeshPhongMaterial,
+MeshLambertMaterial,
+MeshStandardMaterial,
+DirectionalLight,
+DirectionalLightHelper,
+BasicShadowMap,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
@@ -33,24 +42,12 @@ const WHEEL_BASE = 48; // inches
 const WHEEL_RADIUS = TIRE_RADIUS + TIRE_TUBE_RADIUS;
 
 let camera: PerspectiveCamera;
-const textureLoader = new TextureLoader();
-const scene = new Scene();
-// scene.add(new AxesHelper(12));
-scene.add(new AmbientLight());
-// scene.background = new Color("skyblue");
 let animationFrameHandle: number | null = null;
 let { driveWheelSpeed, steerAngle } = storeToRefs(PGAStore);
 let speedFlipFactor = 1;
 let bodyRotation = 0;
 let bodyXPosition = 0;
 let bodyYPosition = 0;
-const driveAngularVelocity = computed(
-  // 2 * PI * RotationPerMinute / 60 radians/second
-  () => (Math.PI * driveWheelSpeed.value) / 30
-);
-const tanSteerAngle = computed(() =>
-  Math.tan((Math.PI * steerAngle.value) / 180)
-);
 let driveWheelAngle = 0;
 // let tirePosition = 0;
 let previousTimeStamp = 0;
@@ -59,17 +56,40 @@ let renderer: WebGLRenderer;
 let bike: Group;
 let driveWheel: Group;
 let steeringWheel: Group;
+
+const textureLoader = new TextureLoader();
+const scene = new Scene();
+scene.add(new AxesHelper(12));
+scene.add(new AmbientLight());
+const light = new PointLight(0xffffff, 10000)
+// light.target.position.set(0,0,30)
+light.position.set(0, 40, 80)
+light.castShadow = true
+// scene.add(light)
+// scene.add(new PointLightHelper(light, 3))
+// scene.background = new Color("skyblue");
+const driveAngularVelocity = computed(
+  // 2 * PI * RotationPerMinute / 60 radians/second
+  () => (Math.PI * driveWheelSpeed.value) / 30
+);
+const tanSteerAngle = computed(() =>
+  Math.tan((Math.PI * steerAngle.value) / 180)
+);
 onMounted(async () => {
-  const marbleTexture = await textureLoader.loadAsync("marble.jpg");
+  const floorTexture = await textureLoader.loadAsync("floor-wood.jpg");
+  floorTexture.wrapS = RepeatWrapping
+  floorTexture.wrapT = RepeatWrapping
+  floorTexture.repeat.set(5,5)
   // console.debug("Texture", marbleTexture);
   const groundPlane = new PlaneGeometry(1000, 1000, 100, 100);
-  const groundMaterial = new MeshBasicMaterial({
-    map: marbleTexture,
+  const groundMaterial = new MeshStandardMaterial({
+    map: floorTexture,
     // color: 'blue'
   });
   const ground = new Mesh(groundPlane, groundMaterial);
+  ground.receiveShadow = true
+  ground.castShadow = false
   // ground.add(new AxesHelper(6))
-  ground.rotateX(0);
   scene.add(ground);
   // console.debug("Canvas at", glcanvas.value);
   const canvasHeight = glcanvas.value!.clientHeight;
@@ -80,17 +100,20 @@ onMounted(async () => {
   camera.lookAt(0, 0, 0);
   bike = makeBike();
   bike.add(camera);
+  bike.add(light)
   scene.add(bike);
   renderer = new WebGLRenderer({
     canvas: glcanvas.value!,
     antialias: true,
   });
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = BasicShadowMap
   renderer.setSize(
     glcanvas.value?.clientWidth ?? 800,
     glcanvas.value?.clientHeight ?? 600
   );
 
-  renderer.setClearColor(0xffff00, 1);
+  renderer.setClearColor(Math.random() * 0xFFFFFF, 1);
   // if (animationFrameHandle != null) cancelAnimationFrame(animationFrameHandle);
   updateGraphics(0);
 });
@@ -129,8 +152,7 @@ function updateGraphics(timeStamp: number) {
   run_integrator(timeStamp);
   driveWheel.rotation.z = driveWheelAngle;
 
-  steeringWheel.rotation.z =
-    driveWheelAngle / Math.cos(MathUtils.degToRad(steerAngle.value));
+  steeringWheel.rotation.z = driveWheelAngle // Math.cos(MathUtils.degToRad(steerAngle.value));
   steeringWheel.rotation.y = -MathUtils.degToRad(steerAngle.value);
   bike.position.x = bodyXPosition;
   bike.position.y = bodyYPosition;
@@ -188,8 +210,9 @@ function makePipe(
     pipeRadius,
     pipeLength
   );
-  const cylinderMaterial = new MeshBasicMaterial({ color: color ?? "grey" });
+  const cylinderMaterial = new MeshPhongMaterial({ color: color ?? "grey" });
   const mesh = new Mesh(cylinderGeometry, cylinderMaterial);
+  mesh.castShadow = true
   // mesh.add(new AxesHelper(12))
   return mesh
 }
@@ -201,13 +224,14 @@ function makeTire(tireRadius: number, tubeRadius: number): Group {
   tireGroup.rotateX(Math.PI / 2);
   // tireGroup.add(new AxesHelper(10))
   const torusGeometry = new TorusGeometry(tireRadius, tubeRadius, 10);
-  const torusMaterial = new MeshBasicMaterial({ color: "black" });
+  const torusMaterial = new MeshPhongMaterial({ color: 0x555555 });
   const tire = new Mesh(torusGeometry, torusMaterial);
+  tire.castShadow = true
   tireGroup.add(tire);
   const translation = new Matrix4().makeTranslation(0, tireRadius / 2, 0);
   const rotation = new Matrix4();
   for (let k = 0; k < NUM_SPOKES; k++) {
-    const spoke = makePipe(tireRadius, 0.6 * tubeRadius);
+    const spoke = makePipe(tireRadius, 0.6 * tubeRadius, "white");
     rotation.makeRotationZ((k * 2 * Math.PI) / NUM_SPOKES);
     spoke.applyMatrix4(translation);
     spoke.applyMatrix4(rotation);
