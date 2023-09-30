@@ -60,4 +60,20 @@ pnpm run preview
 yarn preview
 ```
 
+## Deployment to Netlify
+
 Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+
+The deployment log output of `npm run generate` on Netlify is misleading. Its build step output shows the following two lines of messages:
+
+```
+3:18:57 PM: [success] [nitro] You can preview this build using `npx serve .output/static`
+3:18:57 PM: [success] You can now deploy `dist` to any static hosting!
+```
+
+It makes you think that the publish directory is `.output/static`, but it is **not the case**.
+
+The correct build settings for Netlify is as follows:
+
+* Build command: `npm run generate`
+* Publish directory: `dist`

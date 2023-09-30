@@ -4,12 +4,9 @@ import { TextureLoader } from 'three';
 </template>
 <script setup lang="ts">
 import {
-  Color,
   PerspectiveCamera,
   Scene,
   WebGLRenderer,
-  BoxGeometry,
-  MeshBasicMaterial,
   Mesh,
   TorusGeometry,
   Group,
@@ -22,12 +19,8 @@ import {
   AmbientLight,
 RepeatWrapping,
 PointLight,
-PointLightHelper,
 MeshPhongMaterial,
-MeshLambertMaterial,
 MeshStandardMaterial,
-DirectionalLight,
-DirectionalLightHelper,
 BasicShadowMap,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
@@ -43,11 +36,11 @@ const WHEEL_RADIUS = TIRE_RADIUS + TIRE_TUBE_RADIUS;
 
 let camera: PerspectiveCamera;
 let animationFrameHandle: number | null = null;
-let { driveWheelSpeed, steerAngle } = storeToRefs(PGAStore);
+let { driveWheelSpeed, steerAngle, bodyPosition } = storeToRefs(PGAStore);
 let speedFlipFactor = 1;
 let bodyRotation = 0;
-let bodyXPosition = 0;
-let bodyYPosition = 0;
+// let bodyXPosition = 0;
+// let bodyYPosition = 0;
 let driveWheelAngle = 0;
 // let tirePosition = 0;
 let previousTimeStamp = 0;
@@ -107,7 +100,7 @@ onMounted(async () => {
     antialias: true,
   });
   renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = BasicShadowMap
+  // renderer.shadowMap.type = BasicShadowMap
   renderer.setSize(
     glcanvas.value?.clientWidth ?? 800,
     glcanvas.value?.clientHeight ?? 600
@@ -131,15 +124,15 @@ function run_integrator(timeStamp: number /* in milliseconds */) {
   const bodyLinearVelocity = WHEEL_RADIUS * driveAngularVelocity.value;
   bodyRotation += bodyAngularVelocity * elapsed;
   if (Math.abs(bodyAngularVelocity) < 1e-6) {
-    bodyXPosition += Math.cos(bodyRotation) * elapsed * bodyLinearVelocity;
-    bodyYPosition -= Math.sin(bodyRotation) * elapsed * bodyLinearVelocity;
+    bodyPosition.value.x += Math.cos(bodyRotation) * elapsed * bodyLinearVelocity;
+    bodyPosition.value.y -= Math.sin(bodyRotation) * elapsed * bodyLinearVelocity;
   } else {
     const multiplier = bodyLinearVelocity / bodyAngularVelocity;
-    bodyXPosition +=
+    bodyPosition.value.x +=
       multiplier *
       (Math.sin(bodyRotation + elapsed * bodyAngularVelocity) -
         Math.sin(bodyRotation));
-    bodyYPosition -=
+    bodyPosition.value.y -=
       multiplier *
       (-Math.cos(bodyRotation + elapsed * bodyAngularVelocity) +
         Math.cos(bodyRotation));
@@ -154,8 +147,8 @@ function updateGraphics(timeStamp: number) {
 
   steeringWheel.rotation.z = driveWheelAngle // Math.cos(MathUtils.degToRad(steerAngle.value));
   steeringWheel.rotation.y = -MathUtils.degToRad(steerAngle.value);
-  bike.position.x = bodyXPosition;
-  bike.position.y = bodyYPosition;
+  bike.position.x = bodyPosition.value.x;
+  bike.position.y = bodyPosition.value.y;
   bike.rotation.z = -bodyRotation;
   renderer.render(scene, camera);
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
@@ -244,7 +237,6 @@ function makeTire(tireRadius: number, tubeRadius: number): Group {
 #glcanvas {
   width: 800px;
   height: 600px;
-  // background-color: red;
-  border: 2px solid red;
+  // border: 2px solid red;
 }
 </style>
