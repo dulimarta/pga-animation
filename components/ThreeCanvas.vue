@@ -115,6 +115,7 @@ onBeforeUnmount(() => {
   if (animationFrameHandle != null) cancelAnimationFrame(animationFrameHandle);
 });
 
+// Bicycle Riding Model: https://ciechanow.ski/bicycle/
 function run_integrator(timeStamp: number /* in milliseconds */) {
   const elapsed = (timeStamp - previousTimeStamp) / 1000;
   const bodyAngularVelocity =

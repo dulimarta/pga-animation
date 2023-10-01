@@ -4,7 +4,7 @@
       <ThreeCanvas />
       <div>
         <InputControl />
-        <ConfigVar :data="bodyPosition.x" />
+        <ConfigVar :x-value="bodyPosition.x" :y-value="bodyPosition.y"/>
       </div>
     </div>
   </ClientOnly>
