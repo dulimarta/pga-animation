@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- {{ props.data.toFixed(2) }} -->
-    Configuration Variable
+    Configuration Variables (x,y)
     <!-- {{
     chartData
       .toReversed()
@@ -16,8 +16,6 @@
 <script setup lang="ts">
 // import { LineChart, ScatterChart } from "vue-chart-3";
 import { degToRad } from "three/src/math/MathUtils";
-import Two from "twojs-ts";
-// let twoInstance:Two
 const canvas2d: Ref<HTMLCanvasElement | null> = ref(null);
 type ComponentProps = {
   xValue: number;
@@ -43,9 +41,9 @@ let ctx: CanvasRenderingContext2D;
 // const xyPair: Ref<Array<XYpair>> = ref([]);
 const props = defineProps<ComponentProps>();
 
-watch([() => props.xValue, () => props.yValue], ([x, y]) => {
-  ctx.fillStyle = 'red'
+watch([() => props.xValue, () => props.yValue], ([x, y], [oldX, oldY]) => {
   ctx.beginPath();
+  ctx.fillStyle = 'red'
   ctx.arc(
     (x / 500) * canvas2d.value!.width/2,
     (y / 500) * canvas2d.value!.height/2,
@@ -55,7 +53,17 @@ watch([() => props.xValue, () => props.yValue], ([x, y]) => {
     false
   );
   ctx.fill();
-  console.debug("Getting new data", x, y);
+  ctx.fillStyle = 'lightgreen'
+  ctx.arc(
+    (oldX / 500) * canvas2d.value!.width/2,
+    (oldY / 500) * canvas2d.value!.height/2,
+    2,
+    degToRad(0),
+    degToRad(360),
+    false
+  );
+  ctx.fill();
+  // console.debug("Getting new data", x, y);
   // if (xyPair.value.length > 100) xyPair.value.shift();
 });
 // const testData = ref({

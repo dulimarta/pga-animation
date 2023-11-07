@@ -36,12 +36,12 @@ const WHEEL_RADIUS = TIRE_RADIUS + TIRE_TUBE_RADIUS;
 
 let camera: PerspectiveCamera;
 let animationFrameHandle: number | null = null;
-let { driveWheelSpeed, steerAngle, bodyPosition } = storeToRefs(PGAStore);
-let speedFlipFactor = 1;
+let { driveWheelSpeed, steerAngle, bodyPosition, playAnimation } = storeToRefs(PGAStore);
 let bodyRotation = 0;
 // let bodyXPosition = 0;
 // let bodyYPosition = 0;
 let driveWheelAngle = 0;
+let steeringWheelAngle = 0;
 // let tirePosition = 0;
 let previousTimeStamp = 0;
 
@@ -49,7 +49,6 @@ let renderer: WebGLRenderer;
 let bike: Group;
 let driveWheel: Group;
 let steeringWheel: Group;
-
 const textureLoader = new TextureLoader();
 const scene = new Scene();
 scene.add(new AxesHelper(12));
@@ -65,8 +64,12 @@ const driveAngularVelocity = computed(
   // 2 * PI * RotationPerMinute / 60 radians/second
   () => (Math.PI * driveWheelSpeed.value) / 30
 );
+// watch(() => steerAngle.value, (steer: number) => {
+  
+//   console.debug("Steer angle changed to", steer)
+// })
 const tanSteerAngle = computed(() =>
-  Math.tan((Math.PI * steerAngle.value) / 180)
+  Math.tan(MathUtils.degToRad(steerAngle.value))
 );
 onMounted(async () => {
   const floorTexture = await textureLoader.loadAsync("floor-wood.jpg");
@@ -138,16 +141,22 @@ function run_integrator(timeStamp: number /* in milliseconds */) {
       (-Math.cos(bodyRotation + elapsed * bodyAngularVelocity) +
         Math.cos(bodyRotation));
   }
+  // Keep separate rotation accumulators for the steering wheel and drive wheel
+  steeringWheelAngle =
+    steeringWheelAngle + driveAngularVelocity.value * elapsed * Math.cos(MathUtils.degToRad(steerAngle.value))
   driveWheelAngle =
-    driveWheelAngle - speedFlipFactor * driveAngularVelocity.value * elapsed;
+    driveWheelAngle + driveAngularVelocity.value * elapsed;
   previousTimeStamp = timeStamp;
 }
-function updateGraphics(timeStamp: number) {
-  run_integrator(timeStamp);
-  driveWheel.rotation.z = driveWheelAngle;
 
-  steeringWheel.rotation.z = driveWheelAngle // Math.cos(MathUtils.degToRad(steerAngle.value));
+function updateGraphics(timeStamp: number) {
+  if (playAnimation.value)
+    run_integrator(timeStamp);
+  else
+    previousTimeStamp = timeStamp
+  driveWheel.rotation.z = -driveWheelAngle;
   steeringWheel.rotation.y = -MathUtils.degToRad(steerAngle.value);
+  steeringWheel.rotation.z = -steeringWheelAngle;
   bike.position.x = bodyPosition.value.x;
   bike.position.y = bodyPosition.value.y;
   bike.rotation.z = -bodyRotation;
@@ -212,7 +221,7 @@ function makePipe(
 }
 
 function makeTire(tireRadius: number, tubeRadius: number): Group {
-  const NUM_SPOKES = 5;
+  const NUM_SPOKES = 6;
   const tireGroup = new Group();
   tireGroup.translateZ(tubeRadius + tireRadius);
   tireGroup.rotateX(Math.PI / 2);
@@ -225,7 +234,7 @@ function makeTire(tireRadius: number, tubeRadius: number): Group {
   const translation = new Matrix4().makeTranslation(0, tireRadius / 2, 0);
   const rotation = new Matrix4();
   for (let k = 0; k < NUM_SPOKES; k++) {
-    const spoke = makePipe(tireRadius, 0.6 * tubeRadius, "white");
+    const spoke = makePipe(tireRadius, 0.6 * tubeRadius, k === 0 ? "lightgreen":"white");
     rotation.makeRotationZ((k * 2 * Math.PI) / NUM_SPOKES);
     spoke.applyMatrix4(translation);
     spoke.applyMatrix4(rotation);

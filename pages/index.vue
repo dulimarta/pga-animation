@@ -1,5 +1,4 @@
 <template>
-  <ClientOnly>
     <div id="main">
       <ThreeCanvas />
       <div>
@@ -7,7 +6,6 @@
         <ConfigVar :x-value="bodyPosition.x" :y-value="bodyPosition.y"/>
       </div>
     </div>
-  </ClientOnly>
 </template>
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
