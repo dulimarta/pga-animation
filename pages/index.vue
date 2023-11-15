@@ -3,7 +3,8 @@
       <ThreeCanvas />
       <div>
         <InputControl />
-        <ConfigVar :x-value="bodyPosition.x" :y-value="bodyPosition.y"/>
+        <FloorMap/>
+        <XYPlot :x-value="bodyPosition.x" :y-value="bodyPosition.y" title="XY Position"/>
       </div>
     </div>
 </template>

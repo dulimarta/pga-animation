@@ -17,7 +17,7 @@
       :label="`Steer Angle (${steerAngle.toFixed(1)} deg)`"
     />
     <p></p>
-    <v-switch size="small" v-model="playAnimation"
+    <v-switch v-model="playAnimation"
     :label="switchLabel"></v-switch>
   </div>
 </template>

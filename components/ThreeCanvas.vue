@@ -21,6 +21,7 @@ RepeatWrapping,
 PointLight,
 MeshPhongMaterial,
 MeshStandardMaterial,
+Vector2,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
@@ -38,8 +39,7 @@ const WHEEL_RADIUS = TIRE_RADIUS + TIRE_TUBE_RADIUS;
 const ALPHA = 0.5 // Input averaging factor
 let camera: PerspectiveCamera;
 let animationFrameHandle: number | null = null;
-let { driveWheelTorque, steerAngle, bodyPosition, playAnimation } = storeToRefs(PGAStore);
-let bodyRotation = 0;
+let { driveWheelTorque, steerAngle, bodyPosition, playAnimation, bodyRotation } = storeToRefs(PGAStore);
 let driveWheelAngle = 0;
 let driveWheelAngularVelocity = 0;
 let steeringWheelAngle = 0;
@@ -69,6 +69,7 @@ light.castShadow = true
 const tanSteerAngle = computed(() =>
   Math.tan(MathUtils.degToRad(steerAngle.value))
 );
+
 onMounted(async () => {
   const floorTexture = await textureLoader.loadAsync("floor-wood.jpg");
   floorTexture.wrapS = RepeatWrapping
@@ -132,20 +133,20 @@ function run_integrator(timeStamp: number /* in milliseconds */) {
     tanSteerAngle.value *
     driveWheelAngularVelocity;
   const bodyLinearVelocity = WHEEL_RADIUS * driveWheelAngularVelocity;
-  bodyRotation += bodyAngularVelocity * elapsed;
+  bodyRotation.value += bodyAngularVelocity * elapsed;
   if (Math.abs(bodyAngularVelocity) < 1e-6) {
-    bodyPosition.value.x += Math.cos(bodyRotation) * elapsed * bodyLinearVelocity;
-    bodyPosition.value.y -= Math.sin(bodyRotation) * elapsed * bodyLinearVelocity;
+    bodyPosition.value.x += Math.cos(bodyRotation.value) * elapsed * bodyLinearVelocity;
+    bodyPosition.value.y -= Math.sin(bodyRotation.value) * elapsed * bodyLinearVelocity;
   } else {
     const multiplier = bodyLinearVelocity / bodyAngularVelocity;
     bodyPosition.value.x +=
       multiplier *
-      (Math.sin(bodyRotation + elapsed * bodyAngularVelocity) -
-        Math.sin(bodyRotation));
+      (Math.sin(bodyRotation.value + elapsed * bodyAngularVelocity) -
+        Math.sin(bodyRotation.value));
     bodyPosition.value.y -=
       multiplier *
-      (-Math.cos(bodyRotation + elapsed * bodyAngularVelocity) +
-        Math.cos(bodyRotation));
+      (-Math.cos(bodyRotation.value + elapsed * bodyAngularVelocity) +
+        Math.cos(bodyRotation.value));
   }
   // Keep separate rotation accumulators for the steering wheel and drive wheel
   steeringWheelAngle =
@@ -165,7 +166,7 @@ function updateGraphics(timeStamp: number) {
   steeringWheel.rotation.z = -steeringWheelAngle;
   bike.position.x = bodyPosition.value.x;
   bike.position.y = bodyPosition.value.y;
-  bike.rotation.z = -bodyRotation;
+  bike.rotation.z = -bodyRotation.value;
   renderer.render(scene, camera);
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
 }

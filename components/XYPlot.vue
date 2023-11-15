@@ -1,25 +1,15 @@
 <template>
-  <div>
-    <!-- {{ props.data.toFixed(2) }} -->
-    Configuration Variables (x,y)
-    <!-- {{
-    chartData
-      .toReversed()
-      .slice(0, 3)
-      .map((x) => x.toFixed(2))
-  }} -->
-  </div>
-  <canvas ref="canvas2d" :width="432" :height="432" id="canvas2d">
-    <!-- <ScatterChart :chart-data="testData" :options="chartOptions" /> -->
+  <div class="text-h5">{{ title }}</div>
+  <canvas ref="canvas2d" :width="CANVAS_SIZE" :height="CANVAS_SIZE" id="canvas2d">
   </canvas>
 </template>
 <script setup lang="ts">
-// import { LineChart, ScatterChart } from "vue-chart-3";
 import { degToRad } from "three/src/math/MathUtils";
 const canvas2d: Ref<HTMLCanvasElement | null> = ref(null);
 type ComponentProps = {
   xValue: number;
   yValue: number;
+  title: string
 };
 
 type XYpair = {
@@ -27,21 +17,11 @@ type XYpair = {
   y: number;
 };
 let ctx: CanvasRenderingContext2D;
-// const chartOptions = {
-//   scales: {
-//     type: "linear",
-//     x: {
-//       min: -500, max: +500
-//     },
-//     y: {
-//       min: -500, max: +500
-//     }
-//   }
-// };
 // const xyPair: Ref<Array<XYpair>> = ref([]);
 const props = defineProps<ComponentProps>();
-
+const CANVAS_SIZE = 400
 watch([() => props.xValue, () => props.yValue], ([x, y], [oldX, oldY]) => {
+ctx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE)
   ctx.beginPath();
   ctx.fillStyle = 'red'
   ctx.arc(
@@ -80,20 +60,22 @@ watch([() => props.xValue, () => props.yValue], ([x, y], [oldX, oldY]) => {
 onMounted(() => {
   if (canvas2d.value) {
     ctx = canvas2d.value.getContext("2d")!;
-    ctx.translate(canvas2d.value.width / 2, canvas2d.value.height / 2);
-    ctx.transform(1, 0, 0, -1, 0, 0);
+    // Move origin to center of the canvas and flip Y-axis
     ctx.save();
-    ctx.lineWidth = 3;
+    ctx.transform(1, 0, 0, -1, CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(200, 0);
+    ctx.moveTo(-CANVAS_SIZE/2, 0);
+    ctx.lineTo(CANVAS_SIZE/2, 0);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, 200);
+    ctx.moveTo(0, -CANVAS_SIZE/2);
+    ctx.lineTo(0, CANVAS_SIZE/2);
     ctx.stroke();
     ctx.restore();
-    ctx.strokeText("X", 208, 0);
+    // Draw the text without Y-flip
+    ctx.strokeText("y", 0.52*CANVAS_SIZE, 10);
+    ctx.strokeText("x", 0.95*CANVAS_SIZE, CANVAS_SIZE/2-10);
 
     // new Two({autostart:false, type: Two.Types.svg}).appendTo(twoCanvas.value)
   }
@@ -105,5 +87,6 @@ onMounted(() => {
 <style scoped>
 #canvas2d {
   border: 1px solid red;
+  margin: 4px;
 }
 </style>
