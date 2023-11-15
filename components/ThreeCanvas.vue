@@ -21,7 +21,6 @@ RepeatWrapping,
 PointLight,
 MeshPhongMaterial,
 MeshStandardMaterial,
-BasicShadowMap,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
@@ -31,20 +30,23 @@ const PGAStore = usePGAStore();
 const TIRE_RADIUS = 13;
 const TIRE_TUBE_RADIUS = 1.5;
 const WHEEL_BASE = 48; // inches
+const DRIVE_WHEEL_MASS = 200
+const DRIVE_WHEEL_INERTIA = 250
+const TOTAL_WHEEL_INERTIA = DRIVE_WHEEL_INERTIA + DRIVE_WHEEL_MASS * Math.pow(TIRE_RADIUS + TIRE_TUBE_RADIUS, 2)
 
 const WHEEL_RADIUS = TIRE_RADIUS + TIRE_TUBE_RADIUS;
-
+const ALPHA = 0.5 // Input averaging factor
 let camera: PerspectiveCamera;
 let animationFrameHandle: number | null = null;
-let { driveWheelSpeed, steerAngle, bodyPosition, playAnimation } = storeToRefs(PGAStore);
+let { driveWheelTorque, steerAngle, bodyPosition, playAnimation } = storeToRefs(PGAStore);
 let bodyRotation = 0;
-// let bodyXPosition = 0;
-// let bodyYPosition = 0;
 let driveWheelAngle = 0;
+let driveWheelAngularVelocity = 0;
 let steeringWheelAngle = 0;
-// let tirePosition = 0;
 let previousTimeStamp = 0;
-
+let lastInterpolatedTorque = 0;
+let currInterpolatedTorque = 0;
+let lastInputTorque = 0; 
 let renderer: WebGLRenderer;
 let bike: Group;
 let driveWheel: Group;
@@ -60,10 +62,6 @@ light.castShadow = true
 // scene.add(light)
 // scene.add(new PointLightHelper(light, 3))
 // scene.background = new Color("skyblue");
-const driveAngularVelocity = computed(
-  // 2 * PI * RotationPerMinute / 60 radians/second
-  () => (Math.PI * driveWheelSpeed.value) / 30
-);
 // watch(() => steerAngle.value, (steer: number) => {
   
 //   console.debug("Steer angle changed to", steer)
@@ -120,12 +118,20 @@ onBeforeUnmount(() => {
 
 // Bicycle Riding Model: https://ciechanow.ski/bicycle/
 function run_integrator(timeStamp: number /* in milliseconds */) {
+  lastInterpolatedTorque = currInterpolatedTorque // f_{k-1+alpha}
+  currInterpolatedTorque = ALPHA * lastInputTorque + (1 - ALPHA) * driveWheelTorque.value/10 // f_{k+alpha}
+  lastInputTorque = driveWheelTorque.value/10 // f_{k-1} = f_k
+  const driveWheelMomentum = timeStamp * (ALPHA * lastInterpolatedTorque + (1 - ALPHA) * currInterpolatedTorque)
+  const driveWheelAngularVelocityGain = driveWheelMomentum / TOTAL_WHEEL_INERTIA
+  driveWheelAngularVelocity += driveWheelAngularVelocityGain
+  // prevent the vehicle from moving backward
+  if (driveWheelAngularVelocity < 0) driveWheelAngularVelocity = 0;
   const elapsed = (timeStamp - previousTimeStamp) / 1000;
   const bodyAngularVelocity =
     (WHEEL_RADIUS / WHEEL_BASE) *
     tanSteerAngle.value *
-    driveAngularVelocity.value;
-  const bodyLinearVelocity = WHEEL_RADIUS * driveAngularVelocity.value;
+    driveWheelAngularVelocity;
+  const bodyLinearVelocity = WHEEL_RADIUS * driveWheelAngularVelocity;
   bodyRotation += bodyAngularVelocity * elapsed;
   if (Math.abs(bodyAngularVelocity) < 1e-6) {
     bodyPosition.value.x += Math.cos(bodyRotation) * elapsed * bodyLinearVelocity;
@@ -143,9 +149,9 @@ function run_integrator(timeStamp: number /* in milliseconds */) {
   }
   // Keep separate rotation accumulators for the steering wheel and drive wheel
   steeringWheelAngle =
-    steeringWheelAngle + driveAngularVelocity.value * elapsed * Math.cos(MathUtils.degToRad(steerAngle.value))
+    steeringWheelAngle + driveWheelAngularVelocity * elapsed * Math.cos(MathUtils.degToRad(steerAngle.value))
   driveWheelAngle =
-    driveWheelAngle + driveAngularVelocity.value * elapsed;
+    driveWheelAngle + driveWheelAngularVelocity * elapsed;
   previousTimeStamp = timeStamp;
 }
 
