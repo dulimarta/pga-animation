@@ -21,13 +21,14 @@ RepeatWrapping,
 PointLight,
 MeshPhongMaterial,
 MeshStandardMaterial,
-Vector2,
+Vector2
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
-import { mul } from "ts-geometric-algebra";
+const {makePoint} = usePGA2D()
 const glcanvas: Ref<HTMLCanvasElement | null> = ref(null);
 const PGAStore = usePGAStore();
+
 const TIRE_RADIUS = 13;
 const TIRE_TUBE_RADIUS = 1.5;
 const WHEEL_BASE = 48; // inches
@@ -69,6 +70,10 @@ light.castShadow = true
 const tanSteerAngle = computed(() =>
   Math.tan(MathUtils.degToRad(steerAngle.value))
 );
+const P = makePoint(8, 5)
+const Q = makePoint(2, 2)
+const line = P.Vee(Q)
+console.debug(line.toString())
 
 onMounted(async () => {
   const floorTexture = await textureLoader.loadAsync("floor-wood.jpg");
@@ -170,13 +175,6 @@ function updateGraphics(timeStamp: number) {
   renderer.render(scene, camera);
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
 }
-// import Algebra from 'ts-geometric-algebra';
-
-// const Complex = Algebra(0, 1)
-// const a = new Complex([3, 2])
-// const b = new Complex([-3,5])
-// console.log("Is this a complex number", a, b)
-// console.log("I'm here")
 
 function makeBike(): Group {
   const bikeFrame = new Group();
@@ -257,3 +255,4 @@ function makeTire(tireRadius: number, tubeRadius: number): Group {
   // border: 2px solid red;
 }
 </style>
+~/lib/hanspga

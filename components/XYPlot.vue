@@ -21,7 +21,6 @@ let ctx: CanvasRenderingContext2D;
 const props = defineProps<ComponentProps>();
 const CANVAS_SIZE = 400
 watch([() => props.xValue, () => props.yValue], ([x, y], [oldX, oldY]) => {
-ctx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE)
   ctx.beginPath();
   ctx.fillStyle = 'red'
   ctx.arc(
@@ -61,8 +60,10 @@ onMounted(() => {
   if (canvas2d.value) {
     ctx = canvas2d.value.getContext("2d")!;
     // Move origin to center of the canvas and flip Y-axis
-    ctx.save();
+    ctx.strokeText("y", 0.52*CANVAS_SIZE, 10);
+    ctx.strokeText("x", 0.95*CANVAS_SIZE, CANVAS_SIZE/2-10);
     ctx.transform(1, 0, 0, -1, CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+    ctx.save();
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(-CANVAS_SIZE/2, 0);
@@ -74,8 +75,6 @@ onMounted(() => {
     ctx.stroke();
     ctx.restore();
     // Draw the text without Y-flip
-    ctx.strokeText("y", 0.52*CANVAS_SIZE, 10);
-    ctx.strokeText("x", 0.95*CANVAS_SIZE, CANVAS_SIZE/2-10);
 
     // new Two({autostart:false, type: Two.Types.svg}).appendTo(twoCanvas.value)
   }

@@ -1,6 +1,10 @@
 <template>
+  <div id="floor-map">
   <div class="text-h5">Floor Map</div>
   <div id="box" :style="boxStyle" @mousemove="trackMouse" @wheel.passive="trackWheel"></div>
+  <v-btn style="margin-right: 1em">Set Initial Pose</v-btn>
+  <v-btn>Set Final Pose</v-btn>
+</div>
 </template>
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
@@ -35,6 +39,9 @@ function trackWheel(ev: WheelEvent) {
 <style scoped>
 #box {
   border: 1px solid gray;
+  margin: 8px 0;
+}
+#floor-map {
   margin: 1em;
 }
 </style>
