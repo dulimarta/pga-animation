@@ -18,14 +18,20 @@ import {
   TextureLoader,
   AmbientLight,
 RepeatWrapping,
-PointLight,
+  PointLight,
+Plane,
 MeshPhongMaterial,
 MeshStandardMaterial,
-Vector2
+Vector2,
+Vector3,
+BufferGeometry,
+Line,
+LineBasicMaterial,
+PlaneHelper
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
-const {makePoint} = usePGA2D()
+const {makePoint, makeDirection, makePlane, render} = usePGA3D()
 const glcanvas: Ref<HTMLCanvasElement | null> = ref(null);
 const PGAStore = usePGAStore();
 
@@ -70,10 +76,21 @@ light.castShadow = true
 const tanSteerAngle = computed(() =>
   Math.tan(MathUtils.degToRad(steerAngle.value))
 );
-const P = makePoint(8, 5)
-const Q = makePoint(2, 2)
-const line = P.Vee(Q)
-console.debug(line.toString())
+const rearWheelCtr = makePoint(-WHEEL_BASE/2, 0, 0)
+const bikeDirection = makeDirection(1, 0, 0)
+const rearWheelPlaneNormal = rearWheelCtr.Vee(bikeDirection)
+const rearWheelPlane = rearWheelCtr.Dot(rearWheelPlaneNormal)
+render(scene, rearWheelCtr)
+render(scene, rearWheelPlane)
+
+// const rearAxle = rearWheelCtr.Vee(rearAxleDirection).Normalized
+// const rearPlane = makePlane(1, 2, 3, -WHEEL_BASE / 2)
+
+// render(scene, rearAxle)
+// render(scene, rearPlane)
+// const Q = makePoint(2, 2, 3)
+// const line = P.Vee(Q)
+// console.debug("Rear axle", rearAxle.toString(), rearAxle.Grade(2))
 
 onMounted(async () => {
   const floorTexture = await textureLoader.loadAsync("floor-wood.jpg");
@@ -91,6 +108,7 @@ onMounted(async () => {
   ground.castShadow = false
   // ground.add(new AxesHelper(6))
   scene.add(ground);
+
   // console.debug("Canvas at", glcanvas.value);
   const canvasHeight = glcanvas.value!.clientHeight;
   const canvasWidth = glcanvas.value!.clientWidth;
@@ -101,6 +119,7 @@ onMounted(async () => {
   bike = makeBike();
   bike.add(camera);
   bike.add(light)
+  // scene.add(camera)
   scene.add(bike);
   renderer = new WebGLRenderer({
     canvas: glcanvas.value!,
@@ -206,7 +225,14 @@ function makeBike(): Group {
   topTube.translateY(-4)
   bikeFrame.add(topTube)
   // bikeFrame.position.x = 10
-  return bikeFrame;
+//   const rearAxlePoints: Array<Vector3> = []
+// rearAxlePoints.push(
+//   new Vector3(-WHEEL_BASE / 2, -40, WHEEL_RADIUS),
+//   new Vector3(-WHEEL_BASE / 2, 40, WHEEL_RADIUS))
+// const rearAxleGeo = new BufferGeometry().setFromPoints(rearAxlePoints)
+// const rearAxle = new Line(rearAxleGeo, new LineBasicMaterial({color: 0xFF0000}))
+// bikeFrame.add(rearAxle)
+    return bikeFrame;
 }
 function makePipe(
   pipeLength: number,

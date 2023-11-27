@@ -25,19 +25,11 @@ console.debug(PGA2D.basis)
 
 Create a point at a given coordinate $(x,y)$ using one of the following techniques
 
-1. Supply the multi-vector coefficients to the constructor
-   ```
-   const aPoint = new PGA2D(0,0,0,0,-y,x,1)
-   // aPoint.nVector(2, -y,x,1)
-   ```
-
-2. Use the `nVector` setter function
-
-   ```
-   const aPoint = new PGA2D()
-   // In PGA2D, points are grade 2
-   aPoint.nVector(2 /* grade */, -y, x, 1)
-   ```
+```
+const aPoint = new PGA2D()
+// In PGA2D, points are grade 2
+aPoint.nVector(2 /* grade */, -y, x, 1)
+```
 
 ## Other functions
 
@@ -52,25 +44,27 @@ using the `X.`_functionName_() syntax
 
 | Name / Syntax                  | Description                                         |
 |--------------------------------|-----------------------------------------------------|
-| Grade(g)                       | Select only multivectors of the given grade         |
-| Even()                         | Select only even grade multivectors                 |
-| nVector(grade, _list_of_args_) | Set only a specific grade multivectors              |
-| Coeff(_args_)                  | Set the multivector using the provided coefficients |
-| toString()                     | Show the coefficient as a string                    |
-| Negatitve()                    | Returns the negative of all the coefficients        |
-| Reverse()                      | Return the reverse the coefficient                  |
-| Involute()                     | Return the involute of all the coefficient          |
-| Conjugate()                    | TBD                                                 |
-| Dual()                         | TBD                                                 |
-| UnDual()                       | TBD                                                 |
-| Length                         | TBD                                                 |
-| VLength()                      | TBD                                                 |
-| Normalized()                   | TBD                                                 |
 | Add(Y)                         | Multivector addition                                |
+| Coeff(_args_)                  | Set the multivector using the provided coefficients |
+| Conjugate()                    | TBD                                                 |
+| Dot()                          | Symmetric Contraction                               |
+| Dual()                         | TBD                                                 |
+| Even()                         | Select only even grade multivectors                 |
+| Exp()                          | Exponentiation                                      |
+| Grade(g)                       | Select only multivectors of the given grade         |
+| Involute()                     | Return the involute of all the coefficient          |
+| LDot()                         | Left contraction                                    |
+| Length                         | TBD                                                 |
+| Log()                          | Logarithm                                           |
+| Mul(Y)                         | Geometric Product                                   |
+| Negatitve()                    | Returns the negative of all the coefficients        |
+| Normalized()                   | TBD                                                 |
+| nVector(grade, _list_of_args_) | Set only a specific grade multivectors              |
+| Reverse()                      | Return the reverse the coefficient                  |
 | Scale(s)                       | MultiVector scalar multiplication                   |
 | Sub(Y)                         | Multivector subtraction                             |
-| Mul(Y)                         | Geometric Product                                   |
-| LDot()                         | Left contraction                                    |
-| Dot()                          | Symmetric Contraction                               |
-| Wedge()                        | Outer product                                       |
+| toString()                     | Show the coefficient as a string                    |
+| UnDual()                       | TBD                                                 |
 | Vee()                          | Join (Dual of Wedge)                                |
+| VLength()                      | TBD                                                 |
+| Wedge()                        | Outer product                                       |

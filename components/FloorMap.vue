@@ -1,6 +1,11 @@
 <template>
   <div id="floor-map">
   <div class="text-h5">Floor Map</div>
+  <p>Press `Shift` to set bike pose</p>
+  <ul>
+    <li>Move the mouse to change position</li>
+    <li>Use mouse wheel to change orientation</li>
+  </ul>
   <div id="box" :style="boxStyle" @mousemove="trackMouse" @wheel.passive="trackWheel"></div>
   <v-btn style="margin-right: 1em">Set Initial Pose</v-btn>
   <v-btn>Set Final Pose</v-btn>

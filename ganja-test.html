@@ -1,0 +1,85 @@
+<html>
+
+<head>
+  <style>
+    #main {
+      border: 1px solid red;
+      display: grid;
+      grid-template-columns: 1fr auto;
+    }
+  </style>
+  <script src="https://unpkg.com/ganja.js"></script>
+</head>
+
+<body>
+  <h1>Ganja JS Experiment</h1>
+  <div id="main">
+    <div id="ganja-graph"></div>
+    <input
+      type="range"
+      min="-180"
+      max="180"
+      id="slider"
+    >
+  </div>
+  <script>
+    // const PGA2D = Algebra(3,0,1);
+    // console.debug("NVec", PGA2D.describe(), "Object is ", PGA2D)
+    Algebra(3, 0, 1, () => {
+      const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0).Normalized
+      const makePoint = (x, y, z) => !(1e0 + x * 1e1 + y * 1e2 + z * 1e3)
+      const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3)
+      const makeMotor = (axis, angle) => Math.E**(angle/2 * axis)
+      const A = makePoint(0.2, 0, -1)
+      const B = makePoint(0.2, 0, 1)
+      const C = makePoint(0.5,-1,0)
+      const CDir = makeDirection(-0.5,0.25,0)
+      // Create a line thru C and direction vector CDir
+      const cLine = C.Vee(CDir)
+      // Create a plane thru C and perpendicular to cLine
+      const cPlane = C.Dot(cLine)
+      // Or alternatively cLine.Dot(C)
+      console.debug("C Line", cLine.toString())
+      console.debug("C Plane", cPlane.toString())
+      // const line = 30e1 + 40e2 + 20e0;
+      console.debug(A.toString())
+      const horizPlane = makePlane(0, 1, 0, 0)
+      const xDir = makeDirection(0,0,1)
+      const aLine = A.Vee(xDir)
+      let oldAngle = 0
+      let rotationAngle = Math.PI/18
+      const rotor = (x) => {
+        const r = makeMotor(aLine, x)
+        console.debug("New rotor", r.toString() )
+        return r
+      }
+      const rotatedPlane = (x) => {
+        const a = rotor(x) >>> horizPlane
+        // console.debug(a.toString())
+        return a
+      }
+      document.getElementById("slider").addEventListener('input', (ev) => {
+        // console.debug("Slider change", ev.target.value)
+        rotationAngle = ev.target.value / 180 * Math.PI
+        // rotor = makeMotor(aLine, rotationAngle)
+      })
+      document.getElementById("ganja-graph").appendChild(this.graph(() => {
+        // const rotor = () => makeMotor(aLine, rotationAngle)
+        return  [
+          // 0xFF0000, [A,B],
+          0x000000, C,
+          // 0xFF0000, CDir,
+          // 0x00FF00, horizPlane, "Plane",
+          0x448800, cLine,
+          cPlane,
+          0xFF00ff, rotatedPlane(rotationAngle),
+          // 0xFF0000, rotor(rotationAngle) >>> horizPlane,
+          // 0xFF00FF, aLine
+        ]
+      },
+      { grid: true, labels: true, lineWidth: 3, h: 0.2, p: -0.1, animate:true }))
+    })
+  </script>
+</body>
+
+</html>
