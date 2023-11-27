@@ -24,15 +24,21 @@
   </div>
   <script>
     // const PGA2D = Algebra(3,0,1);
-    // console.debug("NVec", PGA2D.describe(), "Object is ", PGA2D)
-    Algebra(3, 0, 1, () => {
+    Algebra({p:3, q:0, r:1}, () => {
+      console.debug(this.describe())
       const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0).Normalized
       const makePoint = (x, y, z) => !(1e0 + x * 1e1 + y * 1e2 + z * 1e3)
       const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3)
-      const makeMotor = (axis, angle) => Math.E**(angle/2 * axis)
+      const makeMotor = (axis, angle) => {
+    
+        // const out = Math.E ** ((angle/2) * axis)
+        const outMotor = this.Mul(angle/2, axis).Exp()
+        // console.debug("Exp motor", outMotor.toString())
+        return outMotor
+      }
       const A = makePoint(0.2, 0, -1)
       const B = makePoint(0.2, 0, 1)
-      const C = makePoint(0.5,-1,0)
+      const C = makePoint(-0.5,-1,0)
       const CDir = makeDirection(-0.5,0.25,0)
       // Create a line thru C and direction vector CDir
       const cLine = C.Vee(CDir)
@@ -40,7 +46,7 @@
       const cPlane = C.Dot(cLine)
       // Or alternatively cLine.Dot(C)
       console.debug("C Line", cLine.toString())
-      console.debug("C Plane", cPlane.toString())
+      console.debug("C Plane", cPlane, cPlane.toString())
       // const line = 30e1 + 40e2 + 20e0;
       console.debug(A.toString())
       const horizPlane = makePlane(0, 1, 0, 0)
@@ -50,13 +56,17 @@
       let rotationAngle = Math.PI/18
       const rotor = (x) => {
         const r = makeMotor(aLine, x)
-        console.debug("New rotor", r.toString() )
+        // console.debug("New rotor", r.toString() )
         return r
       }
       const rotatedPlane = (x) => {
         const a = rotor(x) >>> horizPlane
-        // console.debug(a.toString())
-        return a
+        const r = rotor(x)
+        const rrev = rotor(x).Reverse
+        const b = r.Mul(horizPlane).Mul(rrev)
+        // console.debug("R", r.toString(), "RRev", rrev.toString())
+        // console.debug("Rotated plane is ", b, b.toString())
+        return b
       }
       document.getElementById("slider").addEventListener('input', (ev) => {
         // console.debug("Slider change", ev.target.value)
@@ -65,14 +75,18 @@
       })
       document.getElementById("ganja-graph").appendChild(this.graph(() => {
         // const rotor = () => makeMotor(aLine, rotationAngle)
+        const rp = rotatedPlane(rotationAngle)
+        const intersection = rp.Wedge(cPlane)
+        console.debug("Intersection", intersection.toString())
         return  [
           // 0xFF0000, [A,B],
           0x000000, C,
           // 0xFF0000, CDir,
           // 0x00FF00, horizPlane, "Plane",
-          0x448800, cLine,
-          cPlane,
-          0xFF00ff, rotatedPlane(rotationAngle),
+          // 0x448800, cLine,
+          0x448800, cPlane,
+          0xFF00ff, rp,
+          0x000088, intersection,
           // 0xFF0000, rotor(rotationAngle) >>> horizPlane,
           // 0xFF00FF, aLine
         ]

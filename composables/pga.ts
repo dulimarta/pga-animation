@@ -1,8 +1,9 @@
 import Algebra from "ganja.js";
 import { Mesh, MeshBasicMaterial, Plane, PlaneHelper, Scene, SphereGeometry, Vector3 } from "three";
 const PGA2D = Algebra(2, 0, 1);
-const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: true });
-// console.debug("In composable", PGA3D.describe());
+const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
+
+console.debug("In composable", PGA3D);
 interface GAElement {
   Vee(_: GAElement): GAElement;
 }
@@ -12,6 +13,7 @@ export function usePGA2D() {
     // const p = new PGA2D([0, 0, 0, 0, y, -x, 1])
     // console.debug("Using arg", p.toString())
     const p = new PGA2D();
+    
     p.nVector(2, y, -x, 1);
     // console.debug(`Point (${x},${y}) => `, p.toString(), p)
     return p;
@@ -22,9 +24,16 @@ export function usePGA2D() {
 export function usePGA3D() {
   function makePoint(x: number, y: number, z: number) {
     const p = new PGA3D();
+    console.debug("Make point", PGA3D.describe())
     p.nVector(3, -z, y, -x, 1).Dual;
     console.debug(`3D point (${x},${y},${z})`, p.toString(), p);
     return p;
+  }
+
+  function makeMotor(axis: any, angle: number):any {
+    const out = PGA3D.Mul(angle/2, axis).Exp()
+    // console.debug("Incoming axis", axis, out)
+    return out
   }
 
   function makePlane(
@@ -42,7 +51,10 @@ export function usePGA3D() {
     return p;
   }
 
-  function render(scene: Scene, elem: typeof PGA3D) {
+  function render(scene: Scene, elem: typeof PGA3D): Object3d {
+    console.debug("Rendering input", elem, elem.toString()) 
+  }
+  function gradedRender(scene: Scene, elem: typeof PGA3D): Object3D {
     
     let k = 0;
     while (k < elem.length) {
@@ -57,7 +69,7 @@ export function usePGA3D() {
       case 0:
         console.debug("Rendering scalar", elems);
         break;
-      case 1:
+      case 1: // Plane
         const normal = elems.slice(1,4)
         while (normal.length < 3)
           normal.push(0)
@@ -67,9 +79,9 @@ export function usePGA3D() {
         const planeHelper = new PlaneHelper(plane, 20, 0xff0000)
         // const steeringPlaneMat = new MeshStandardMaterial({ color: 0x00ff00 })
         scene.add(planeHelper)
-      
+        return planeHelper
         break;
-      case 2:
+      case 2: // Line
         const direction = elems.slice(3, 7)
         // When the sparse array contains "empty" elements, 
         // we may not get enough values. Pad with zeros
@@ -78,18 +90,22 @@ export function usePGA3D() {
         const thruPoint = elems.slice(0, 3)
         console.debug("Rendering a line", elem.toString(), "thru", thruPoint, "dir", direction.reverse());
         break;
-      case 3:
+      case 3: // Point (Euclidean or Ideal)
         const px = -elems[2]
         const py = elems[1]
         const pz = -elems[0]
         const pw = elems[3]
-        console.debug(pw ? "Rendering a point " : "Rendering a direction", elems, elem.toString(),
+        if (Math.abs(pw) > 1e-5) {
+          console.debug("Rendering a point ", elems, elem.toString(),
           `==> (${px.toFixed(2)},${py.toFixed(2)},${pz.toFixed(2)})`);
-        const pGeo = new SphereGeometry(2, 20, 20)
-        const pMat = new MeshBasicMaterial({ color: 0xFFFF00 })
-        const pMesh = new Mesh(pGeo, pMat)
-        pMesh.position.set(px,py,pz)
-        scene.add(pMesh)
+          const pGeo = new SphereGeometry(2, 20, 20)
+          const pMat = new MeshBasicMaterial({ color: 0xFFFF00 })
+          const pMesh = new Mesh(pGeo, pMat)
+          pMesh.position.set(px, py, pz)
+          scene.add(pMesh)
+        } else {
+          console.error("Directions are not rendered")
+        }
         break;
       case 4:
         console.debug("Rendering superscalar", elems);
@@ -104,5 +120,5 @@ export function usePGA3D() {
     return p;
   }
 
-  return { makePoint, makeDirection, makePlane, render };
+  return { makePoint, makeDirection, makePlane,makeMotor, render };
 }
