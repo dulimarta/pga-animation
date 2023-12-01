@@ -7,6 +7,9 @@
       display: grid;
       grid-template-columns: 1fr auto;
     }
+    #ganja-graph {
+      width: 500px
+    }
   </style>
   <script src="https://unpkg.com/ganja.js"></script>
 </head>
@@ -24,22 +27,32 @@
   </div>
   <script>
     // const PGA2D = Algebra(3,0,1);
-    Algebra({p:3, q:0, r:1}, () => {
+    Algebra({ p: 3, q: 0, r: 1 }, () => {
       console.debug(this.describe())
       const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0).Normalized
       const makePoint = (x, y, z) => !(1e0 + x * 1e1 + y * 1e2 + z * 1e3)
       const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3)
       const makeMotor = (axis, angle) => {
-    
+
         // const out = Math.E ** ((angle/2) * axis)
-        const outMotor = this.Mul(angle/2, axis).Exp()
+        const outMotor = this.Mul(angle / 2, axis).Exp()
         // console.debug("Exp motor", outMotor.toString())
         return outMotor
       }
+      const origin = makePoint(0,0,0)
       const A = makePoint(0.2, 0, -1)
-      const B = makePoint(0.2, 0, 1)
-      const C = makePoint(-0.5,-1,0)
-      const CDir = makeDirection(-0.5,0.25,0)
+      const B = makePoint(1, 0, 0.8)
+      const C = makePoint(-0.5, -1, 0)
+      const lineBC = () => B.Vee(C)
+      const mistery = () => {
+        const out = origin.Vee(lineBC()) // plane thru origin and line BC
+        // const out = origin.Dot(lineBC()) // plane thru origin and perpendicular to BC
+        return out
+      }
+      // const D = () => lineBC.Grade(2)
+      console.debug("Line BC", lineBC().Grade(2))
+
+      const CDir = makeDirection(-0.5, 0.25, 0)
       // Create a line thru C and direction vector CDir
       const cLine = C.Vee(CDir)
       // Create a plane thru C and perpendicular to cLine
@@ -50,10 +63,10 @@
       // const line = 30e1 + 40e2 + 20e0;
       console.debug(A.toString())
       const horizPlane = makePlane(0, 1, 0, 0)
-      const xDir = makeDirection(0,0,1)
+      const xDir = makeDirection(0, 0, 1)
       const aLine = A.Vee(xDir)
       let oldAngle = 0
-      let rotationAngle = Math.PI/18
+      let rotationAngle = Math.PI / 18
       const rotor = (x) => {
         const r = makeMotor(aLine, x)
         // console.debug("New rotor", r.toString() )
@@ -78,20 +91,42 @@
         const rp = rotatedPlane(rotationAngle)
         const intersection = rp.Wedge(cPlane)
         console.debug("Intersection", intersection.toString())
-        return  [
+        const what = mistery().Dual.Vee(origin)
+        const bivec = lineBC().Grade(2)
+        const x = bivec.e01 // normal of the plane that passes thru the line and origin
+        const y = bivec.e02
+        const z = bivec.e03
+        const xx = bivec.e23 // direction of the line
+        const yy = bivec.e13
+        const zz = bivec.e12
+        const planeThruLine = lineBC().Vee(origin)
+        const planePerpLine = lineBC().Dual.Vee(origin)
+        const A2BC = A.Vee(lineBC()).Length
+        return [`Distance ${A2BC}`,
           // 0xFF0000, [A,B],
-          0x000000, C,
+          0x0000FF, origin, "O",
+          A, "A", 
+          0x000000, C,  "C",
+          B, "B", lineBC,
+
+          0xFF0000, planeThruLine,
+          0x00FF00, planePerpLine.Wedge(lineBC())
+          // 0xFF0000, mistery, `Mistery Direction [${xx.toFixed(2)},${yy.toFixed(2)},${zz.toFixed(2)}]`
+          // + ` (${x.toFixed(2)},${y.toFixed(2)},${z.toFixed(2)})`,
+          // 0x0000FF, what, `Plane normal ${what.toString()}`,
+          // 0xFF00FF, lineBC().Dual,         `${lineBC().Grade(2)}`
+          // D, "D on BC"
           // 0xFF0000, CDir,
           // 0x00FF00, horizPlane, "Plane",
           // 0x448800, cLine,
-          0x448800, cPlane,
-          0xFF00ff, rp,
-          0x000088, intersection,
+          // 0x448800, cPlane,
+          // 0xFF00ff, rp,
+          // 0x000088, intersection,
           // 0xFF0000, rotor(rotationAngle) >>> horizPlane,
           // 0xFF00FF, aLine
         ]
       },
-      { grid: true, labels: true, lineWidth: 3, h: 0.2, p: -0.1, animate:true }))
+        { grid: true, labels: true, lineWidth: 3, h: 0.2, p: -0.1, animate: true, width: 800 }))
     })
   </script>
 </body>

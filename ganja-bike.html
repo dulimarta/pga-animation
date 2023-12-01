@@ -1,0 +1,111 @@
+<html>
+
+<head>
+  <style>
+    #main {
+      display: flex;
+      flex-direction: column;
+    }
+    #ganja-graph {
+      width: 500px
+      border: 1px solid red;
+    }
+  </style>
+  <script src="https://unpkg.com/ganja.js"></script>
+</head>
+
+<body>
+  <h1>Ganja JS Experiment</h1>
+  <div id="main">
+    <div>
+      <input
+      type="range"
+      min="-80"
+      max="80"
+      step="1"
+      value="0"
+      id="steer"
+    >
+    <input
+      type="range"
+      min="-60"
+      max="60"
+      value="0"
+      step="1"
+      id="body"
+    >
+    </div>
+    <div id="ganja-graph"></div>
+  </div>
+  <script>
+    // const PGA2D = Algebra(3,0,1);
+    Algebra({ p: 3, q: 0, r: 1 }, () => {
+      console.debug(this.describe())
+      const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0).Normalized
+      const makePoint = (x, y, z) => !(1e0 + x * 1e1 + y * 1e2 + z * 1e3)
+      const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3)
+      const makeMotor = (axis, angle) => {
+
+        // const out = Math.E ** ((angle/2) * axis)
+        const outMotor = this.Mul(angle / 2, axis).Exp()
+        // console.debug("Exp motor", outMotor.toString())
+        return outMotor
+      }
+      const origin = makePoint(0,0,0)
+      const sideDirection = makeDirection(0,0,1)
+      let frontHub = makePoint(0.75, -0.5, 0)
+      let rearHub = makePoint(0,-0.5,0)
+      const upDirection = makeDirection(0,1,0)
+      const steerAxis = () => frontHub.Vee(upDirection)
+      let rearPlane = makePlane(1,0,0,0)
+      let frontPlane = makePlane(1,0,0,-0.75)
+      let rigidRotationAxis = frontPlane.Wedge(rearPlane)
+
+      let frontAxle = frontHub.Vee(sideDirection)
+      // const aLine = A.Vee(xDir)
+      let steerAngle = 0
+      let rigidRotation = 0
+      const rotor = (x) => {
+        const r = makeMotor(aLine, x)
+        // console.debug("New rotor", r.toString() )
+        return r
+      }
+      document.getElementById("steer").addEventListener('input', (ev) => {
+        // console.debug("Slider change", ev.target.value)
+        const delta = ev.target.value - steerAngle
+        const steerRotor = makeMotor(steerAxis, -delta * Math.PI/180)
+        frontPlane = steerRotor >>> frontPlane
+        frontAxle = steerRotor >>> frontAxle
+        rigidRotationAxis = frontPlane.Wedge(rearPlane)
+        steerAngle = ev.target.value
+        // rotor = makeMotor(aLine, rotationAngle)
+      })
+      document.getElementById("body").addEventListener('input', (ev) => {
+        // console.debug("Slider change", ev.target.value)
+        const delta = ev.target.value - rigidRotation
+        const bodyRotor = makeMotor(rigidRotationAxis, -delta * Math.PI/180)
+        rearPlane = bodyRotor.Mul(rearPlane).Mul(bodyRotor.Reverse)
+        frontHub = bodyRotor >>> frontHub
+        // rearPlane = bodyRotor >>> rearPlane
+        rearHub = bodyRotor >>> rearHub
+        frontAxle = bodyRotor >>> frontAxle
+        rigidRotation = ev.target.value
+        // rotor = makeMotor(aLine, rotationAngle)
+      })
+      document.getElementById("ganja-graph").appendChild(this.graph(() => {
+        // const rotatedFrontPlane = rotor.Mul(frontPlane).Mul(rotor.Reverse)
+        // const rotatedFrontAxle = rotor.Mul(frontAxle).Mul(rotor.Reverse)
+        return [`Bike Model. Steer ${steerAngle} degrees. Body rotation ${rigidRotation} degrees`, //+ rigidRotationCenter.toString(),
+          rearHub, "R", frontHub, "F",
+          rearPlane,
+          [rearHub,frontHub],
+          0xFF0000, frontAxle,
+          0x0000ff, steerAngle ? rigidRotationAxis : ""
+        ]
+      },
+        { grid: true, labels: true, lineWidth: 3, h: 1.8, p: -0.1, animate: true, width: 800 }))
+    })
+  </script>
+</body>
+
+</html>

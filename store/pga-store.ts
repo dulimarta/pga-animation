@@ -6,7 +6,8 @@ export const usePGAStore = defineStore('pga', () => {
   const bodyRotation = ref(0)
   const bodyPosition: Ref<Vector2> = ref(new Vector2())
   const playAnimation = ref(true)
+  const showGeometry = ref(true)
 
   // const floorInputPosition: Ref<Vector2> = ref(new Vector2())
-  return {driveWheelTorque, steerAngle, bodyPosition, bodyRotation, playAnimation}
+  return {driveWheelTorque, steerAngle, bodyPosition, bodyRotation, playAnimation, showGeometry}
 })
