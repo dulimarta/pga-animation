@@ -44,8 +44,8 @@ export function usePGA3D() {
     return p;
   }
 
-  function makeRotor(axis: any, angleInRadians: number): any {
-    const out = PGA3D.Mul(angleInRadians / 2, axis).Exp();
+  function makeRotor(axis: any, angleInRadiansOrDistance: number): any {
+    const out = PGA3D.Mul(angleInRadiansOrDistance / 2, axis).Exp();
     // console.debug("Incoming axis", axis, out)
     return out;
   }
@@ -63,11 +63,19 @@ export function usePGA3D() {
     );
     return p;
   }
+  function parsePGAPoint(text: string, pointEl: any) {
+    const px = -pointEl.e023
+    const py = pointEl.e013
+    const pz = -pointEl.e012
+    console.debug(text, `a point at (${px.toFixed(2)},${py.toFixed(2)},${pz.toFixed(2)})`, "Raw point", pointEl.toString())    
+  }
+
   function parsePGALine(text: string, lineEl: any) {
     // Lines are represented using Plucker 6-dim homogeneous coordinates
     // (moment_x, moment_y, moment_z; dir_x, dir_y, dir_z)
     // such that the moment vector is perpendicular to the direction vector
     // Get the moment of the line
+    console.debug(text, "Raw data", lineEl, lineEl.toString())
     const mx = lineEl.e01;
     const my = lineEl.e02;
     const mz = lineEl.e03;
@@ -201,5 +209,5 @@ export function usePGA3D() {
     }
   }
 
-  return { makePoint, makeDirection, makeRotor, parsePGALine, parsePGAPlane };
+  return { makePoint, makeDirection, makePlane, makeRotor, parsePGALine, parsePGAPlane, parsePGAPoint };
 }
