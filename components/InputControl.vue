@@ -55,13 +55,13 @@ const switchLabel = computed(() =>
   playAnimation.value ? "Animate" : "Pause Animation"
 );
 function moreTorque() {
-  driveWheelTorque.value = .5;
+  driveWheelTorque.value = 2;
   setTimeout(() => {
     driveWheelTorque.value = 0;
   }, 500);
 }
 function lessTorque() {
-  driveWheelTorque.value = -.2;
+  driveWheelTorque.value = -.5;
   setTimeout(() => {
     driveWheelTorque.value = 0;
   }, 500);
