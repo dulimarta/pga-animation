@@ -7225,6 +7225,11 @@ ts-node@^8.3.0:
     source-map-support "^0.5.17"
     yn "3.1.1"
 
+ts-semaphore@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/ts-semaphore/-/ts-semaphore-1.0.0.tgz#b1746944cfa9cab87e4ebbca6c7f9ad149a1f2a5"
+  integrity sha512-pVttFT51kQiiq6MzdFGOLhKKIAbcI7CdTtSWMsFDBo02PqLMmTK337mMvGXU7vBL+fdTFFvEeE8lDgImOeHW7g==
+
 tsconfig-paths@^3.5.0:
   version "3.14.2"
   resolved "https://registry.yarnpkg.com/tsconfig-paths/-/tsconfig-paths-3.14.2.tgz#6e32f1f79412decd261f92d633a9dc1cfa99f088"

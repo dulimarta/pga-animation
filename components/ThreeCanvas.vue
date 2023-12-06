@@ -22,7 +22,6 @@ import {
   Plane,
   MeshPhongMaterial,
   MeshStandardMaterial,
-  Vector2,
   Vector3,
   BufferGeometry,
   Line,
@@ -31,7 +30,6 @@ import {
   SphereGeometry,
   BufferAttribute,
 } from "three";
-import Algebra from "ganja.js";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
 const {
@@ -64,7 +62,7 @@ let {
   driveWheelTorque,
   steerAngle,
   bodyPosition,
-  playAnimation,
+  brakeApplied,
   bodyRotation,
   showGeometry,
   rigidRotationAngleDebug,
@@ -95,9 +93,6 @@ light.castShadow = true;
 // scene.add(light)
 // scene.add(new PointLightHelper(light, 3))
 // scene.background = new Color("skyblue");
-// const tanSteerAngle = computed(() =>
-//   Math.tan(MathUtils.degToRad(steerAngle.value))
-// );
 const bikeSideDirection = makeDirection(0, 1, 0);
 let rearHub = makePoint(0, 0, 0);
 let rearWheelPlane = makePlane(1, 0, 0, 0);
@@ -120,8 +115,8 @@ rearSphere.position.set(-rearHub.e023, rearHub.e013, -rearHub.e012);
 //   frontHub.Vee(bikeForwardDirection).Normalized;
 // let rotatedFrontPlane = frontWheelPlane;
 const upDirection = makeDirection(0, 0, 1);
-const steeringAxis = computed(() => frontHub.Vee(upDirection).Normalized);
-parsePGALine("Steering axis", steeringAxis.value);
+const steeringAxis = () => frontHub.Vee(upDirection).Normalized;
+parsePGALine("Steering axis", steeringAxis());
 // console.debug(
 //   "Steering axis",
 //   steeringAxis.value,
@@ -154,12 +149,12 @@ frontAxisVertices[3] = WHEEL_BASE;
 frontAxisVertices[4] = 0;
 frontAxisVertices[5] = WHEEL_RADIUS;
 if (showGeometry.value) {
-  // scene.add(rearPlaneHelper);
-  // scene.add(frontPlaneHelper);
+  scene.add(rearPlaneHelper);
+  scene.add(frontPlaneHelper);
   scene.add(rearSphere);
   scene.add(frontSphere);
   scene.add(rearAxis);
-  scene.add(frontAxis)
+  scene.add(frontAxis);
 }
 
 watch(
@@ -167,14 +162,14 @@ watch(
   (showGeo: boolean) => {
     console.debug("Geometry control", showGeo);
     if (showGeo) {
-      // scene.add(frontPlaneHelper);
-      // scene.add(rearPlaneHelper);
+      scene.add(frontPlaneHelper);
+      scene.add(rearPlaneHelper);
       scene.add(rotAxisObj);
       scene.add(frontSphere);
       scene.add(rearSphere);
     } else {
-      // scene.remove(frontPlaneHelper);
-      // scene.remove(rearPlaneHelper);
+      scene.remove(frontPlaneHelper);
+      scene.remove(rearPlaneHelper);
       scene.remove(rotAxisObj);
       scene.remove(frontSphere);
       scene.remove(rearSphere);
@@ -187,9 +182,9 @@ watch(
   () => steerAngle.value,
   (steer: number, oldSteer: number) => {
     const steerDelta = steer - oldSteer;
-    parsePGALine("In ange watcher, steering axis", steeringAxis.value);
+    // parsePGALine("In angle watcher, steering axis", steeringAxis.value);
     const steeringRotor = makeRotor(
-      steeringAxis.value,
+      steeringAxis(),
       MathUtils.degToRad(-steerDelta)
     );
 
@@ -205,14 +200,16 @@ watch(
       rotationalMotion = true;
     }
 
-    frontWheelPlane = steeringRotor
+    const tempFP = steeringRotor
       .Mul(frontWheelPlane)
       .Mul(steeringRotor.Reverse);
-    frontAxle = steeringRotor.Mul(frontAxle).Mul(steeringRotor.Reverse);
+    const tempFA = steeringRotor.Mul(frontAxle).Mul(steeringRotor.Reverse);
     // parsePGAPlane("Steering plane", frontWheelPlane);
     // parsePGALine("Front Axle", frontAxle);
-    bikeRigidRotationAxis = frontWheelPlane.Wedge(rearWheelPlane);
+    bikeRigidRotationAxis = tempFP.Wedge(rearWheelPlane);
     // parsePGALine("Plane intersection", bikeRigidRotationAxis);
+    frontWheelPlane = tempFP;
+    frontAxle = tempFA;
     frontPlane.normal.set(
       frontWheelPlane.e1,
       frontWheelPlane.e2,
@@ -221,33 +218,34 @@ watch(
     frontPlane.constant = frontWheelPlane.e0;
     // We HAVE TO normalized the point to include the correct scaling factor
     const rigidBodyRotationCenter = frontAxle.Wedge(rearWheelPlane).Normalized;
-    parsePGAPoint("RB rotation center", rigidBodyRotationCenter);
+    // parsePGAPoint("RB rotation center", rigidBodyRotationCenter);
     if (steer < 0) {
       rotAxisObj.position.set(
         -rigidBodyRotationCenter.e023,
         rigidBodyRotationCenter.e013,
-        TIRE_RADIUS/2
+        TIRE_RADIUS / 2
       );
-      rearAxisVertices[0] = -rigidBodyRotationCenter.e023
-      rearAxisVertices[1] = rigidBodyRotationCenter.e013
+      rearAxisVertices[0] = -rigidBodyRotationCenter.e023;
+      rearAxisVertices[1] = rigidBodyRotationCenter.e013;
       rearAxis.geometry.attributes.position.needsUpdate = true;
-      frontAxisVertices[0] = -rigidBodyRotationCenter.e023
-      frontAxisVertices[1] = rigidBodyRotationCenter.e013
+      frontAxisVertices[0] = -rigidBodyRotationCenter.e023;
+      frontAxisVertices[1] = rigidBodyRotationCenter.e013;
       frontAxis.geometry.attributes.position.needsUpdate = true;
-    }
-    else {
+    } else if (steer > 0) {
       rotAxisObj.position.set(
         rigidBodyRotationCenter.e023,
         -rigidBodyRotationCenter.e013,
-        TIRE_RADIUS/2
+        TIRE_RADIUS / 2
       );
-      rearAxisVertices[0] = rigidBodyRotationCenter.e023
-      rearAxisVertices[1] = -rigidBodyRotationCenter.e013
+      rearAxisVertices[0] = rigidBodyRotationCenter.e023;
+      rearAxisVertices[1] = -rigidBodyRotationCenter.e013;
       rearAxis.geometry.attributes.position.needsUpdate = true;
-      frontAxisVertices[0] = rigidBodyRotationCenter.e023
-      frontAxisVertices[1] = -rigidBodyRotationCenter.e013
+      frontAxisVertices[0] = rigidBodyRotationCenter.e023;
+      frontAxisVertices[1] = -rigidBodyRotationCenter.e013;
       frontAxis.geometry.attributes.position.needsUpdate = true;
     }
+    console.debug("Front line vertices", frontAxisVertices);
+    console.debug("Rear line vertices", rearAxisVertices);
     // console.debug("Front and Rear Plane intersection #2", bikeRigidRotationAxis, bikeRigidRotationAxis.toString())
     // parsePGALine("Bike rigid rotation axis", bikeRigidRotationAxis);
     // rigidRotationRadius = rearHub.Vee(rigidBodyRotationCenter).Length;
@@ -309,7 +307,7 @@ function makeAuxPlane(pgaPlane: any, color?: number): [Plane, PlaneHelper] {
     new Vector3(pgaPlane.e1, pgaPlane.e2, pgaPlane.e3),
     pgaPlane.e0
   );
-  const pH = new PlaneHelper(p, 30, color ?? 0x888888);
+  const pH = new PlaneHelper(p, 29, color ?? 0x888888);
   return [p, pH];
 }
 
@@ -343,78 +341,89 @@ function run_geometric_integrator(timeMillisec: number) {
   if (driveWheelAngularVelocity < 0) driveWheelAngularVelocity = 0;
 
   if (driveWheelAngularVelocity !== 0) {
+    const currentSteerDirection = steerAngle.value;
     const driveWheelAngleGain = driveWheelAngularVelocity * elapsed; // radians
     const linearDistanceGain =
       driveWheelAngleGain * (WHEEL_RADIUS + TIRE_TUBE_RADIUS) * INCH_TO_METER;
-    if (steerAngle.value === 0) {
+    if (currentSteerDirection === 0) {
       // Translational motion
       rigidRotationAngleOrTranslation = linearDistanceGain; // in meter
     } else {
       // rotational motion
       const turnRadius =
-        Math.abs(WHEEL_BASE / Math.tan(MathUtils.degToRad(steerAngle.value))) *
-        INCH_TO_METER;
+        Math.abs(
+          WHEEL_BASE / Math.tan(MathUtils.degToRad(currentSteerDirection))
+        ) * INCH_TO_METER;
       rigidRotationAngleOrTranslation = linearDistanceGain / turnRadius;
       bodyRotation.value +=
-        rigidRotationAngleOrTranslation * Math.sign(steerAngle.value);
+        rigidRotationAngleOrTranslation * Math.sign(currentSteerDirection);
     }
+    steeringWheelAngle +=
+      driveWheelAngleGain / Math.cos(MathUtils.degToRad(currentSteerDirection));
+    driveWheelAngle += driveWheelAngleGain;
     const bikeRigidMotionRotor = makeRotor(
       bikeRigidRotationAxis.Normalized,
       rigidRotationAngleOrTranslation
     );
     // console.debug("Bike rigid motion rotor", bikeRigidMotionRotor);
-    frontWheelPlane = bikeRigidMotionRotor
+    const tempFWP = bikeRigidMotionRotor
       .Mul(frontWheelPlane)
       .Mul(bikeRigidMotionRotor.Reverse);
+    const tempFA = bikeRigidMotionRotor
+      .Mul(frontAxle)
+      .Mul(bikeRigidMotionRotor.Reverse);
     // Update rear wheel plane
-    rearWheelPlane = bikeRigidMotionRotor
+    const tempRWP = bikeRigidMotionRotor
       .Mul(rearWheelPlane)
       .Mul(bikeRigidMotionRotor.Reverse);
-    rearHub = bikeRigidMotionRotor
+    const tempRH = bikeRigidMotionRotor
       .Mul(rearHub)
       .Mul(bikeRigidMotionRotor.Reverse);
-    frontHub = bikeRigidMotionRotor
+    const tempFH = bikeRigidMotionRotor
       .Mul(frontHub)
       .Mul(bikeRigidMotionRotor.Reverse);
-    steeringWheelAngle +=
-      driveWheelAngleGain * Math.cos(MathUtils.degToRad(steerAngle.value));
-    driveWheelAngle += driveWheelAngleGain;
+    frontWheelPlane = tempFWP;
+    rearWheelPlane = tempRWP;
+    frontHub = tempFH;
+    rearHub = tempRH;
+    frontAxle = tempFA;
   }
   previousTimeStamp = timeMillisec;
 }
 
 function updateGraphics(timeStamp: number) {
   // console.debug("Angular velo", driveWheelAngularVelocity)
-  if (playAnimation.value) {
+  if (!brakeApplied.value) {
     run_geometric_integrator(timeStamp);
     driveWheel.rotation.z = -driveWheelAngle;
-    steeringWheel.rotation.y = -MathUtils.degToRad(steerAngle.value);
     steeringWheel.rotation.z = -steeringWheelAngle;
     bike.position.x = -rearHub.e023;
     bike.position.y = rearHub.e013;
     bike.rotation.z = -bodyRotation.value;
+    rearPlane.normal.set(
+      rearWheelPlane.e1,
+      rearWheelPlane.e2,
+      rearWheelPlane.e3
+    );
+    rearPlane.constant = rearWheelPlane.e0;
     frontSphere.position.set(-frontHub.e023, frontHub.e013, -frontHub.e012);
     rearSphere.position.set(-rearHub.e023, rearHub.e013, -rearHub.e012);
-    frontAxisVertices[3] = -frontHub.e023
-    frontAxisVertices[4] = frontHub.e013
-    frontAxis.geometry.attributes.position.needsUpdate = true
-    rearAxisVertices[3] = -rearHub.e023
-    rearAxisVertices[4] = rearHub.e013
-    rearAxis.geometry.attributes.position.needsUpdate = true
-
-    // frontPlane.normal.set(
-    //   frontWheelPlane.e1,
-    //   frontWheelPlane.e2,
-    //   frontWheelPlane.e3
-    // );
-    // frontPlane.constant = frontWheelPlane.e0;
-    // rearPlane.normal.set(
-    //   rearWheelPlane.e1,
-    //   rearWheelPlane.e2,
-    //   rearWheelPlane.e3
-    // );
-    // rearPlane.constant = rearWheelPlane.e0;
+    rearAxisVertices[3] = -rearHub.e023;
+    rearAxisVertices[4] = rearHub.e013;
+    rearAxis.geometry.attributes.position.needsUpdate = true;
+    console.debug("Front axle vertices", frontAxisVertices);
+    console.debug("Rear axle vertices", rearAxisVertices);
   }
+  frontPlane.normal.set(
+    frontWheelPlane.e1,
+    frontWheelPlane.e2,
+    frontWheelPlane.e3
+  );
+  frontPlane.constant = frontWheelPlane.e0;
+  frontAxisVertices[3] = -frontHub.e023;
+    frontAxisVertices[4] = frontHub.e013;
+    frontAxis.geometry.attributes.position.needsUpdate = true;
+  steeringWheel.rotation.y = -MathUtils.degToRad(steerAngle.value);
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
   previousTimeStamp = timeStamp;
   renderer.render(scene, camera);

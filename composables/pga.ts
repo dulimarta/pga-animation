@@ -10,7 +10,7 @@ import {
 } from "three";
 const PGA2D = Algebra(2, 0, 1);
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
-console.debug("In composable", PGA3D);
+// console.debug("In composable", PGA3D);
 interface GAElement {
   Vee(_: GAElement): GAElement;
 }
@@ -57,10 +57,10 @@ export function usePGA3D() {
     distanceToOrig: number
   ) {
     const p = new PGA3D().nVector(1, distanceToOrig, nx, ny, nz);
-    console.debug(
-      `Plane ${nx}x + ${ny}y + ${nz}x + ${distanceToOrig} ==> `,
-      p.toString()
-    );
+    // console.debug(
+    //   `Plane ${nx}x + ${ny}y + ${nz}x + ${distanceToOrig} ==> `,
+    //   p.toString()
+    // );
     return p;
   }
   function parsePGAPoint(text: string, pointEl: any) {
@@ -75,7 +75,7 @@ export function usePGA3D() {
     // (moment_x, moment_y, moment_z; dir_x, dir_y, dir_z)
     // such that the moment vector is perpendicular to the direction vector
     // Get the moment of the line
-    console.debug(text, "Raw data", lineEl, lineEl.toString())
+    // console.debug(text, "Raw data", lineEl, lineEl.toString())
     const mx = lineEl.e01;
     const my = lineEl.e02;
     const mz = lineEl.e03;

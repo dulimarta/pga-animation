@@ -25,6 +25,7 @@
     "pinia": "^2.1.6",
     "three": "^0.156.1",
     "ts-geometric-algebra": "dulimarta/ts-geometric-algebra",
+    "ts-semaphore": "^1.0.0",
     "twojs-ts": "^0.7.0-13",
     "vue": "^3.3.4",
     "vuetify": "^3.3.19"

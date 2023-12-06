@@ -25,7 +25,7 @@
             :label="`Steer Angle (${steerAngle.toFixed(1)} deg)`"
         /></v-col>
       </v-row>
-      <v-row>
+      <v-row v-if="false">
         <v-col>(Debugging only)
           <v-slider
             v-model="rigidRotationAngleDebug"
@@ -38,7 +38,7 @@
       </v-row>
     </v-container>
     <span style="display: flex">
-      <v-switch v-model="playAnimation" :label="switchLabel"></v-switch>
+      <v-switch v-model="brakeApplied" :label="switchLabel"></v-switch>
       <v-switch v-model="showGeometry" label="Show Geometry" />
     </span>
   </div>
@@ -48,11 +48,11 @@
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
 const store = usePGAStore();
-const { driveWheelTorque, steerAngle, rigidRotationAngleDebug, playAnimation, showGeometry } =
+const { driveWheelTorque, steerAngle, rigidRotationAngleDebug, brakeApplied, showGeometry } =
   storeToRefs(store);
 
 const switchLabel = computed(() =>
-  playAnimation.value ? "Animate" : "Pause Animation"
+  brakeApplied.value ? "Release brake" : "Apply brake"
 );
 function moreTorque() {
   driveWheelTorque.value = 2;
