@@ -16,17 +16,21 @@
         </v-col>
       </v-row>
       <v-row>
+        <v-col cols="6">
+          <span>Steer Direction</span>
+        </v-col>
         <v-col>
-          <v-slider
-            v-model="steerAngle"
-            :min="-80"
-            :max="80"
-            :step="0.5"
-            :label="`Steer Angle (${steerAngle.toFixed(1)} deg)`"
-        /></v-col>
+          <v-btn @click="steerLeft" style="margin-right: 0.5em">
+            <v-icon>mdi-rotate-left</v-icon>
+          </v-btn>
+          <v-btn @click="steerRight" style="margin-right: 0.5em">
+            <v-icon>mdi-rotate-right</v-icon>
+          </v-btn>
+        </v-col>
       </v-row>
       <v-row v-if="false">
-        <v-col>(Debugging only)
+        <v-col
+          >(Debugging only)
           <v-slider
             v-model="rigidRotationAngleDebug"
             :min="-120"
@@ -47,10 +51,17 @@
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
+import { MathUtils } from "three";
 const store = usePGAStore();
-const { driveWheelTorque, steerAngle, rigidRotationAngleDebug, brakeApplied, showGeometry } =
-  storeToRefs(store);
+const {
+  driveWheelTorque,
+  steerVelocity,
+  rigidRotationAngleDebug,
+  brakeApplied,
+  showGeometry,
+} = storeToRefs(store);
 
+const STEER_SPEED = 30;
 const switchLabel = computed(() =>
   brakeApplied.value ? "Release brake" : "Apply brake"
 );
@@ -61,10 +72,23 @@ function moreTorque() {
   }, 500);
 }
 function lessTorque() {
-  driveWheelTorque.value = -.5;
+  driveWheelTorque.value = -0.5;
   setTimeout(() => {
     driveWheelTorque.value = 0;
   }, 500);
+}
+
+function steerLeft() {
+  steerVelocity.value = MathUtils.degToRad(STEER_SPEED); // clockwise
+  setTimeout(() => {
+    steerVelocity.value = 0;
+  }, 300);
+}
+function steerRight() {
+  steerVelocity.value = -MathUtils.degToRad(STEER_SPEED); // anticlockwise
+  setTimeout(() => {
+    steerVelocity.value = 0;
+  }, 300);
 }
 </script>
 <style scoped>

@@ -60,7 +60,7 @@ let camera: PerspectiveCamera;
 let animationFrameHandle: number | null = null;
 let {
   driveWheelTorque,
-  steerAngle,
+  steerVelocity,
   bodyPosition,
   brakeApplied,
   bodyRotation,
@@ -71,6 +71,7 @@ let driveWheelAngle = 0;
 let driveWheelAngularVelocity = 0;
 // let driveWheelAngularIncrement = 0;
 let steeringWheelAngle = 0;
+let steerDirection = 0; // in radians
 let previousTimeStamp = 0;
 let lastInterpolatedTorque = 0;
 let currInterpolatedTorque = 0;
@@ -160,96 +161,23 @@ if (showGeometry.value) {
 watch(
   () => showGeometry.value,
   (showGeo: boolean) => {
-    console.debug("Geometry control", showGeo);
     if (showGeo) {
       scene.add(frontPlaneHelper);
       scene.add(rearPlaneHelper);
       scene.add(rotAxisObj);
       scene.add(frontSphere);
       scene.add(rearSphere);
+      scene.add(frontAxis)
+      scene.add(rearAxis)
     } else {
       scene.remove(frontPlaneHelper);
       scene.remove(rearPlaneHelper);
       scene.remove(rotAxisObj);
       scene.remove(frontSphere);
       scene.remove(rearSphere);
+      scene.remove(frontAxis)
+      scene.remove(rearAxis)
     }
-  }
-);
-
-// Steering Angle watcher
-watch(
-  () => steerAngle.value,
-  (steer: number, oldSteer: number) => {
-    const steerDelta = steer - oldSteer;
-    // parsePGALine("In angle watcher, steering axis", steeringAxis.value);
-    const steeringRotor = makeRotor(
-      steeringAxis(),
-      MathUtils.degToRad(-steerDelta)
-    );
-
-    if (steer === 0) {
-      if (rotationalMotion) {
-        scene.remove(rotAxisObj);
-      }
-      rotationalMotion = false;
-    } else {
-      if (!rotationalMotion) {
-        scene.add(rotAxisObj);
-      }
-      rotationalMotion = true;
-    }
-
-    const tempFP = steeringRotor
-      .Mul(frontWheelPlane)
-      .Mul(steeringRotor.Reverse);
-    const tempFA = steeringRotor.Mul(frontAxle).Mul(steeringRotor.Reverse);
-    // parsePGAPlane("Steering plane", frontWheelPlane);
-    // parsePGALine("Front Axle", frontAxle);
-    bikeRigidRotationAxis = tempFP.Wedge(rearWheelPlane);
-    // parsePGALine("Plane intersection", bikeRigidRotationAxis);
-    frontWheelPlane = tempFP;
-    frontAxle = tempFA;
-    frontPlane.normal.set(
-      frontWheelPlane.e1,
-      frontWheelPlane.e2,
-      frontWheelPlane.e3
-    );
-    frontPlane.constant = frontWheelPlane.e0;
-    // We HAVE TO normalized the point to include the correct scaling factor
-    const rigidBodyRotationCenter = frontAxle.Wedge(rearWheelPlane).Normalized;
-    // parsePGAPoint("RB rotation center", rigidBodyRotationCenter);
-    if (steer < 0) {
-      rotAxisObj.position.set(
-        -rigidBodyRotationCenter.e023,
-        rigidBodyRotationCenter.e013,
-        TIRE_RADIUS / 2
-      );
-      rearAxisVertices[0] = -rigidBodyRotationCenter.e023;
-      rearAxisVertices[1] = rigidBodyRotationCenter.e013;
-      rearAxis.geometry.attributes.position.needsUpdate = true;
-      frontAxisVertices[0] = -rigidBodyRotationCenter.e023;
-      frontAxisVertices[1] = rigidBodyRotationCenter.e013;
-      frontAxis.geometry.attributes.position.needsUpdate = true;
-    } else if (steer > 0) {
-      rotAxisObj.position.set(
-        rigidBodyRotationCenter.e023,
-        -rigidBodyRotationCenter.e013,
-        TIRE_RADIUS / 2
-      );
-      rearAxisVertices[0] = rigidBodyRotationCenter.e023;
-      rearAxisVertices[1] = -rigidBodyRotationCenter.e013;
-      rearAxis.geometry.attributes.position.needsUpdate = true;
-      frontAxisVertices[0] = rigidBodyRotationCenter.e023;
-      frontAxisVertices[1] = -rigidBodyRotationCenter.e013;
-      frontAxis.geometry.attributes.position.needsUpdate = true;
-    }
-    console.debug("Front line vertices", frontAxisVertices);
-    console.debug("Rear line vertices", rearAxisVertices);
-    // console.debug("Front and Rear Plane intersection #2", bikeRigidRotationAxis, bikeRigidRotationAxis.toString())
-    // parsePGALine("Bike rigid rotation axis", bikeRigidRotationAxis);
-    // rigidRotationRadius = rearHub.Vee(rigidBodyRotationCenter).Length;
-    // console.debug("Rigid rotation radius", rigidRotationRadius);
   }
 );
 
@@ -339,27 +267,68 @@ function run_geometric_integrator(timeMillisec: number) {
   driveWheelAngularVelocity += driveWheelAngularVelocityGain; // radians/sec
   // prevent the vehicle from moving backward
   if (driveWheelAngularVelocity < 0) driveWheelAngularVelocity = 0;
-
+  const steerDirectionGain = steerVelocity.value * elapsed; // radians
+  steerDirection += steerDirectionGain;
+  if (Math.abs(steerVelocity.value) > 1e-3) {
+    // steer angle changes
+    if (Math.abs(steerDirection) < 1e-3) {
+      // translational motion
+      if (rotationalMotion) scene.remove(rotAxisObj);
+      rotationalMotion = false;
+    } else {
+      // rotational motion
+      if (!rotationalMotion && showGeometry.value) scene.add(rotAxisObj);
+      rotationalMotion = true;
+    }
+    const steeringRotor = makeRotor(steeringAxis(), steerDirectionGain);
+    const tempFP = steeringRotor
+      .Mul(frontWheelPlane)
+      .Mul(steeringRotor.Reverse);
+    const tempFA = steeringRotor.Mul(frontAxle).Mul(steeringRotor.Reverse);
+    // parsePGAPlane("Steering plane", frontWheelPlane);
+    // parsePGALine("Front Axle", frontAxle);
+    bikeRigidRotationAxis = tempFP.Wedge(rearWheelPlane);
+    // parsePGALine("Plane intersection", bikeRigidRotationAxis);
+    frontWheelPlane = tempFP;
+    frontAxle = tempFA;
+    frontPlane.normal.set(
+      frontWheelPlane.e1,
+      frontWheelPlane.e2,
+      frontWheelPlane.e3
+    );
+    frontPlane.constant =   frontWheelPlane.e0;
+    // We HAVE TO normalized the point to include the correct scaling factor
+    const rigidBodyRotationCenter = frontAxle.Wedge(rearWheelPlane).Normalized;
+    // parsePGAPoint("RB rotation center", rigidBodyRotationCenter);
+    const steerDirSign = Math.sign(steerDirection);
+    rotAxisObj.position.set(
+      -rigidBodyRotationCenter.e023 * steerDirSign,
+      rigidBodyRotationCenter.e013 * steerDirSign,
+      TIRE_RADIUS / 2
+    );
+    rearAxisVertices[0] = -rigidBodyRotationCenter.e023 * steerDirSign;
+    rearAxisVertices[1] = rigidBodyRotationCenter.e013 * steerDirSign;
+    rearAxis.geometry.attributes.position.needsUpdate = true;
+    frontAxisVertices[0] = -rigidBodyRotationCenter.e023 * steerDirSign;
+    frontAxisVertices[1] = rigidBodyRotationCenter.e013 * steerDirSign;
+    frontAxis.geometry.attributes.position.needsUpdate = true;
+  }
   if (driveWheelAngularVelocity !== 0) {
-    const currentSteerDirection = steerAngle.value;
     const driveWheelAngleGain = driveWheelAngularVelocity * elapsed; // radians
     const linearDistanceGain =
       driveWheelAngleGain * (WHEEL_RADIUS + TIRE_TUBE_RADIUS) * INCH_TO_METER;
-    if (currentSteerDirection === 0) {
+    if (Math.abs(steerDirection) < 1e-5) {
       // Translational motion
       rigidRotationAngleOrTranslation = linearDistanceGain; // in meter
     } else {
       // rotational motion
       const turnRadius =
-        Math.abs(
-          WHEEL_BASE / Math.tan(MathUtils.degToRad(currentSteerDirection))
-        ) * INCH_TO_METER;
+        Math.abs(WHEEL_BASE / Math.tan(-steerDirection)) * INCH_TO_METER;
       rigidRotationAngleOrTranslation = linearDistanceGain / turnRadius;
       bodyRotation.value +=
-        rigidRotationAngleOrTranslation * Math.sign(currentSteerDirection);
+        rigidRotationAngleOrTranslation * Math.sign(-steerDirection);
     }
-    steeringWheelAngle +=
-      driveWheelAngleGain / Math.cos(MathUtils.degToRad(currentSteerDirection));
+    steeringWheelAngle += driveWheelAngleGain / Math.cos(steerDirection);
     driveWheelAngle += driveWheelAngleGain;
     const bikeRigidMotionRotor = makeRotor(
       bikeRigidRotationAxis.Normalized,
@@ -421,9 +390,9 @@ function updateGraphics(timeStamp: number) {
   );
   frontPlane.constant = frontWheelPlane.e0;
   frontAxisVertices[3] = -frontHub.e023;
-    frontAxisVertices[4] = frontHub.e013;
-    frontAxis.geometry.attributes.position.needsUpdate = true;
-  steeringWheel.rotation.y = -MathUtils.degToRad(steerAngle.value);
+  frontAxisVertices[4] = frontHub.e013;
+  frontAxis.geometry.attributes.position.needsUpdate = true;
+  steeringWheel.rotation.y = steerDirection;
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
   previousTimeStamp = timeStamp;
   renderer.render(scene, camera);
