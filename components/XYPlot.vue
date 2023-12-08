@@ -4,8 +4,13 @@
   </canvas>
 </template>
 <script setup lang="ts">
+
+import { storeToRefs } from "pinia";
 import { degToRad } from "three/src/math/MathUtils";
+import { usePGAStore } from "~/store/pga-store";
 const canvas2d: Ref<HTMLCanvasElement | null> = ref(null);
+const PGAStore = usePGAStore();
+const {runMode} = storeToRefs(PGAStore)
 type ComponentProps = {
   xValue: number;
   yValue: number;
@@ -21,6 +26,7 @@ let ctx: CanvasRenderingContext2D;
 const props = defineProps<ComponentProps>();
 const CANVAS_SIZE = 400
 watch([() => props.xValue, () => props.yValue], ([x, y], [oldX, oldY]) => {
+  if (runMode.value !== 'run') return
   ctx.beginPath();
   ctx.fillStyle = 'red'
   ctx.arc(

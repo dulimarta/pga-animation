@@ -4,7 +4,7 @@
     <v-container>
       <v-row>
         <v-col cols="6">
-          <span>Apply Wheel Torque</span>
+          <span>Drive Wheel Torque</span>
         </v-col>
         <v-col>
           <v-btn @click="lessTorque" style="margin-right: 0.5em">
@@ -27,19 +27,7 @@
             <v-icon>mdi-rotate-right</v-icon>
           </v-btn>
         </v-col>
-      </v-row>
-      <v-row v-if="false">
-        <v-col
-          >(Debugging only)
-          <v-slider
-            v-model="rigidRotationAngleDebug"
-            :min="-120"
-            :max="120"
-            :step="2"
-            :label="`Body Angle (${rigidRotationAngleDebug.toFixed(1)} deg)`"
-          />
-        </v-col>
-      </v-row>
+      </v-row>      
     </v-container>
     <span style="display: flex">
       <v-switch v-model="brakeApplied" :label="switchLabel"></v-switch>
@@ -56,7 +44,6 @@ const store = usePGAStore();
 const {
   driveWheelTorque,
   steerVelocity,
-  rigidRotationAngleDebug,
   brakeApplied,
   showGeometry,
 } = storeToRefs(store);

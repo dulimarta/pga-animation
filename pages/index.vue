@@ -2,11 +2,12 @@
   <div id="main">
     <ThreeCanvas style="flex-grow:3"/>
     <div style="flex-grow:1">
-      <v-tabs v-model="currentTab">
+      Selected Mode {{ runMode }} {{ currentTab }}
+      <v-tabs v-model="currentTab" @update:modelValue="setRunMode">
         <v-tab>Run</v-tab>
         <v-tab>Setup</v-tab>
       </v-tabs>
-      <v-window v-model="currentTab">
+      <v-window v-model="currentTab" >
         <v-window-item>
           <InputControl />
           <XYPlot
@@ -26,8 +27,12 @@
 import { storeToRefs } from "pinia";
 import { usePGAStore } from "~/store/pga-store";
 const store = usePGAStore();
-const { bodyPosition } = storeToRefs(store);
+const { bodyPosition, runMode } = storeToRefs(store);
 const currentTab = ref(0);
+
+function setRunMode() {
+  runMode.value = currentTab.value === 0 ? "run" : "setup"    
+}
 </script>
 <style scoped>
 #main {

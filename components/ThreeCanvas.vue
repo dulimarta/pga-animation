@@ -29,6 +29,7 @@ import {
   PlaneHelper,
   SphereGeometry,
   BufferAttribute,
+  Vector2,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
@@ -65,7 +66,7 @@ let {
   brakeApplied,
   bodyRotation,
   showGeometry,
-  rigidRotationAngleDebug,
+  runMode,
 } = storeToRefs(PGAStore);
 let driveWheelAngle = 0;
 let driveWheelAngularVelocity = 0;
@@ -100,8 +101,8 @@ let rearWheelPlane = makePlane(1, 0, 0, 0);
 let frontHub = makePoint(WHEEL_BASE, 0, 0);
 let frontWheelPlane = makePlane(1, 0, 0, -WHEEL_BASE);
 let frontAxle = frontHub.Vee(bikeSideDirection);
-const frontSphere = makeSphere(3, "yellow");
-const rearSphere = makeSphere(3, "red");
+const frontSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "yellow");
+const rearSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "red");
 frontSphere.position.set(-frontHub.e023, frontHub.e013, -frontHub.e012);
 rearSphere.position.set(-rearHub.e023, rearHub.e013, -rearHub.e012);
 // Join the center of the rear wheel with a forward vector to make a line
@@ -167,18 +168,28 @@ watch(
       scene.add(rotAxisObj);
       scene.add(frontSphere);
       scene.add(rearSphere);
-      scene.add(frontAxis)
-      scene.add(rearAxis)
+      scene.add(frontAxis);
+      scene.add(rearAxis);
     } else {
       scene.remove(frontPlaneHelper);
       scene.remove(rearPlaneHelper);
       scene.remove(rotAxisObj);
       scene.remove(frontSphere);
       scene.remove(rearSphere);
-      scene.remove(frontAxis)
-      scene.remove(rearAxis)
+      scene.remove(frontAxis);
+      scene.remove(rearAxis);
     }
   }
+);
+
+watch(
+  [() => bodyPosition.value, () => bodyRotation.value],
+  ([position, orientation]: [Vector2, number]) => {
+    console.debug(`Changing bike position to (${position.x},${position.y})`)
+    bike.position.x = position.x;
+    bike.position.y = position.y;
+    bike.rotation.z = orientation;
+  }, {deep: true}
 );
 
 onMounted(async () => {
@@ -296,7 +307,7 @@ function run_geometric_integrator(timeMillisec: number) {
       frontWheelPlane.e2,
       frontWheelPlane.e3
     );
-    frontPlane.constant =   frontWheelPlane.e0;
+    frontPlane.constant = frontWheelPlane.e0;
     // We HAVE TO normalized the point to include the correct scaling factor
     const rigidBodyRotationCenter = frontAxle.Wedge(rearWheelPlane).Normalized;
     // parsePGAPoint("RB rotation center", rigidBodyRotationCenter);
@@ -360,6 +371,15 @@ function run_geometric_integrator(timeMillisec: number) {
   previousTimeStamp = timeMillisec;
 }
 
+function updatePoseOnly(timeStamp:number) {
+  bike.rotation.z = -bodyRotation.value;
+  animationFrameHandle = requestAnimationFrame((t) =>
+  runMode.value === 'run' ?
+    updateGraphics(t) : updatePoseOnly(t))
+  previousTimeStamp = timeStamp;
+  renderer.render(scene, camera);
+
+}
 function updateGraphics(timeStamp: number) {
   // console.debug("Angular velo", driveWheelAngularVelocity)
   if (!brakeApplied.value) {
@@ -393,7 +413,9 @@ function updateGraphics(timeStamp: number) {
   frontAxisVertices[4] = frontHub.e013;
   frontAxis.geometry.attributes.position.needsUpdate = true;
   steeringWheel.rotation.y = steerDirection;
-  animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
+  animationFrameHandle = requestAnimationFrame((t) =>
+  runMode.value === 'run' ?
+    updateGraphics(t) : updatePoseOnly(t))
   previousTimeStamp = timeStamp;
   renderer.render(scene, camera);
 }
