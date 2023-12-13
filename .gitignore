@@ -25,3 +25,6 @@ logs
 
 # Yarn files
 .yarn/cache
+
+# LaTeX build files
+build/*

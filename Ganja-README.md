@@ -57,7 +57,7 @@ using the `X.`_functionName_() syntax
 | Length                         | TBD                                                 |
 | Log()                          | Logarithm                                           |
 | Mul(Y)                         | Geometric Product                                   |
-| Negatitve()                    | Returns the negative of all the coefficients        |
+| Negative()                     | Returns the negative of all the coefficients        |
 | Normalized()                   | TBD                                                 |
 | nVector(grade, _list_of_args_) | Set only a specific grade multivectors              |
 | Reverse()                      | Return the reverse the coefficient                  |

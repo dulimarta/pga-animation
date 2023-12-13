@@ -1,8 +1,7 @@
 <template>
   <div id="main">
-    <ThreeCanvas style="flex-grow:3"/>
-    <div style="flex-grow:1">
-      Selected Mode {{ runMode }} {{ currentTab }}
+    <ThreeCanvas class="flex-child"/>
+    <div class="flex-child">
       <v-tabs v-model="currentTab" @update:modelValue="setRunMode">
         <v-tab>Run</v-tab>
         <v-tab>Setup</v-tab>
@@ -34,9 +33,19 @@ function setRunMode() {
   runMode.value = currentTab.value === 0 ? "run" : "setup"    
 }
 </script>
-<style scoped>
+<style scoped lang="scss">
 #main {
   display: flex;
   flex-direction: row;
+}
+.flex-child {
+  &:nth-child(1) {
+    flex-grow: 4;
+    // border: 2px solid blue;
+  }
+  &:nth-child(2) {
+    flex-grow: 1;
+    // border: 2px solid red
+  }
 }
 </style>

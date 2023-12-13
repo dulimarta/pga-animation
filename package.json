@@ -21,6 +21,7 @@
   "dependencies": {
     "@mdi/font": "^7.2.96",
     "@pinia/nuxt": "^0.4.11",
+    "@vueuse/core": "^10.7.0",
     "ganja.js": "^1.0.204",
     "pinia": "^2.1.6",
     "three": "^0.156.1",

@@ -1,0 +1,91 @@
+<html>
+
+<head>
+  <style>
+    #main {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #ganja-graph {
+      width: 500px;
+      border: 1px solid red;
+    }
+  </style>
+  <script src="https://unpkg.com/ganja.js"></script>
+</head>
+
+<body>
+  <h1>Ganja JS Experiment</h1>
+  <div id="main">
+    <div>
+      <input
+        type="range"
+        min="-80"
+        max="80"
+        step="1"
+        value="0"
+        id="steer"
+      >
+      <input
+        type="range"
+        min="-60"
+        max="60"
+        value="0"
+        step="1"
+        id="body"
+      >
+    </div>
+    <div id="ganja-graph"></div>
+  </div>
+  <script>
+    // const PGA2D = Algebra(3,0,1);
+    Algebra({ p: 3, q: 0, r: 1 }, () => {
+      console.debug(this.describe())
+      const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0) //.Normalized
+      const makePoint = (x, y, z) => (1e0 + x * 1e1 + y * 1e2 + z * 1e3).Dual
+      const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3)
+
+      const NSIDES = 15
+      let wheel = [...Array(NSIDES)]
+        .map((x,i)=> {
+          const angle = 2*i*Math.PI/NSIDES
+          return makePoint(0.4*Math.cos(angle), 0.4*Math.sin(angle), 0)
+        })
+
+
+      let state = [
+        makePoint(0.5,-0.5,0), // Initial position
+        0e12          // Rotor
+      ]
+      function forques(M,B) {
+        const  rot = M >>> (makeDirection(0, -0.6, 0).Vee(wheel[0]))
+        return rot
+      }
+      // First derivative of state
+      function dState ([M,B]) { 
+        return  [
+          -0.5 * M * B,
+          (forques(M,B) - 0.5 * (B.Dual * B - B * B.Dual)).UnDual
+        ]
+      }
+      document.getElementById("ganja-graph").appendChild(this.graph(() => {
+        const T = makeDirection(0,1,0).Dot(wheel[0])
+        state = state + 0.01 * dState(state)
+        state[0] = state[0].Normalized
+        state[1] = state[1].Grade(2)
+        // cube.transform = state[0]
+        const newWheel = state[0] >>> wheel
+        const fq = state[0] >>> makeDirection(0, 1, 0).Vee(wheel[0])
+        return [`Kinematics & Dynamics ${state[0]}`, //+ rigidRotationCenter.toString(),
+          0xFF7700, newWheel,
+          0x0000FF, newWheel[0], 
+          0x000000, fq
+        ]
+      },
+        { grid: true, gl:false, lineWidth:4, animate:true,h: 1.8, p: -0.1 }))
+    })
+  </script>
+</body>
+
+</html>

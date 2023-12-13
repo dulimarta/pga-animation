@@ -113,7 +113,7 @@
       document.getElementById("ganja-graph").appendChild(this.graph(() => {
         // const rotatedFrontPlane = rotor.Mul(frontPlane).Mul(rotor.Reverse)
         // const rotatedFrontAxle = rotor.Mul(frontAxle).Mul(rotor.Reverse)
-        return [`Bike Model. Steer ${steerAngle} degrees. Body rotation ${rigidRotation} degrees`, //+ rigidRotationCenter.toString(),
+        return [`Bike Model2. Steer ${steerAngle} degrees. Body rotation ${rigidRotation} degrees`, //+ rigidRotationCenter.toString(),
           rearHub, "R", frontHub(), "F",
           // rearPlane,
         [rearHub, frontHub()],
@@ -123,7 +123,7 @@
           0x0000ff, steerAngle ? rigidRotationAxis : ""
         ]
       },
-        { grid: true, labels: true, lineWidth: 3, h: 1.8, p: -0.1, animate: true, width: 800 }))
+        { grid: true, labels: true, lineWidth: 3, h: 1.8, p: -0.1, animate: false, width: 800 }))
     })
   </script>
 </body>

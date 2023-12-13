@@ -1,6 +1,8 @@
 import { TextureLoader } from 'three';
 <template>
-  <canvas ref="glcanvas" id="glcanvas" />
+  <div>
+    <canvas ref="glcanvas" id="glcanvas" />
+  </div>
 </template>
 <script setup lang="ts">
 import {
@@ -30,9 +32,13 @@ import {
   SphereGeometry,
   BufferAttribute,
   Vector2,
+  MeshBasicMaterial,
+  DoubleSide,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
+import { useWindowSize, useResizeObserver } from '@vueuse/core'
+
 const {
   makePoint,
   makeDirection,
@@ -81,6 +87,7 @@ let renderer: WebGLRenderer;
 let bike: Group;
 let driveWheel: Group;
 let steeringWheel: Group;
+let steeringFork: Group = new Group();
 let rotationalMotion = false;
 // let rigidRotationRadius = Number.POSITIVE_INFINITY;
 let rigidRotationAngleOrTranslation = 0;
@@ -98,6 +105,29 @@ light.castShadow = true;
 const bikeSideDirection = makeDirection(0, 1, 0);
 let rearHub = makePoint(0, 0, 0);
 let rearWheelPlane = makePlane(1, 0, 0, 0);
+const frontWheelPlaneMesh = new Mesh(
+  new PlaneGeometry(WHEEL_RADIUS, 1),
+  new MeshBasicMaterial({
+    color: 0x888800,
+    side: DoubleSide,
+    transparent: true,
+    opacity: 0.5,
+  })
+);
+frontWheelPlaneMesh.rotateY(Math.PI / 2);
+frontWheelPlaneMesh.position.set(0, 0, WHEEL_RADIUS / 2);
+const rearWheelPlaneMesh = new Mesh(
+  new PlaneGeometry(WHEEL_RADIUS, 1),
+  new MeshBasicMaterial({
+    color: 0x880000,
+    side: DoubleSide,
+    transparent: true,
+    opacity: 0.5,
+  })
+);
+rearWheelPlaneMesh.rotateY(Math.PI / 2);
+rearWheelPlaneMesh.position.set(0, 0, WHEEL_RADIUS / 2);
+
 let frontHub = makePoint(WHEEL_BASE, 0, 0);
 let frontWheelPlane = makePlane(1, 0, 0, -WHEEL_BASE);
 let frontAxle = frontHub.Vee(bikeSideDirection);
@@ -138,6 +168,7 @@ const [rearPlane, rearPlaneHelper] = makeAuxPlane(rearWheelPlane, 0xff0000);
 const [frontPlane, frontPlaneHelper] = makeAuxPlane(frontWheelPlane, 0xffff00);
 const [rearAxis, rearAxisVertices] = makeAuxLine(0xff0000);
 const [frontAxis, frontAxisVertices] = makeAuxLine(0xffff00);
+
 rearAxisVertices[0] = 0;
 rearAxisVertices[1] = 0;
 rearAxisVertices[2] = WHEEL_RADIUS;
@@ -157,6 +188,7 @@ if (showGeometry.value) {
   scene.add(frontSphere);
   scene.add(rearAxis);
   scene.add(frontAxis);
+  if (steeringFork) steeringFork!.add(rearWheelPlaneMesh);
 }
 
 watch(
@@ -170,6 +202,8 @@ watch(
       scene.add(rearSphere);
       scene.add(frontAxis);
       scene.add(rearAxis);
+      steeringFork.add(frontWheelPlaneMesh);
+      bike.add(rearWheelPlaneMesh);
     } else {
       scene.remove(frontPlaneHelper);
       scene.remove(rearPlaneHelper);
@@ -178,6 +212,8 @@ watch(
       scene.remove(rearSphere);
       scene.remove(frontAxis);
       scene.remove(rearAxis);
+      steeringFork.remove(frontWheelPlaneMesh);
+      bike.remove(rearWheelPlaneMesh);
     }
   }
 );
@@ -185,11 +221,12 @@ watch(
 watch(
   [() => bodyPosition.value, () => bodyRotation.value],
   ([position, orientation]: [Vector2, number]) => {
-    console.debug(`Changing bike position to (${position.x},${position.y})`)
+    console.debug(`Changing bike position to (${position.x},${position.y})`);
     bike.position.x = position.x;
     bike.position.y = position.y;
     bike.rotation.z = orientation;
-  }, {deep: true}
+  },
+  { deep: true }
 );
 
 onMounted(async () => {
@@ -209,15 +246,14 @@ onMounted(async () => {
   // ground.add(new AxesHelper(6))
   scene.add(ground);
 
-  // console.debug("Canvas at", glcanvas.value);
-  const canvasHeight = glcanvas.value!.clientHeight;
-  const canvasWidth = glcanvas.value!.clientWidth;
-  camera = new PerspectiveCamera(45, canvasWidth / canvasHeight, 0.1, 1000);
+  console.debug("Canvas at", glcanvas.value);
+  camera = new PerspectiveCamera(45, 4 / 3, 0.1, 1000);
   camera.position.set(1.5 * WHEEL_BASE, 100, 50);
   camera.up.set(0, 0, 1);
   camera.lookAt(WHEEL_BASE / 2, 0, 5);
   bike = makeBike();
   bike.add(camera);
+  // steeringFork.add(frontWheelPlaneMesh);
   bike.add(light);
   // scene.add(camera)
   scene.add(bike);
@@ -227,14 +263,16 @@ onMounted(async () => {
   });
   renderer.shadowMap.enabled = true;
   // renderer.shadowMap.type = BasicShadowMap
-  renderer.setSize(
-    glcanvas.value?.clientWidth ?? 800,
-    glcanvas.value?.clientHeight ?? 600
-  );
+  // renderer.setSize(
+  //   glcanvas.value?.clientWidth ?? 400,
+  //   glcanvas.value?.clientHeight ?? 300
+  // );
 
   renderer.setClearColor(Math.random() * 0xffffff, 1);
+  handleResize()
   // if (animationFrameHandle != null) cancelAnimationFrame(animationFrameHandle);
   updateGraphics(0);
+  window.addEventListener('resize', handleResize)
 });
 
 onBeforeUnmount(() => {
@@ -371,14 +409,13 @@ function run_geometric_integrator(timeMillisec: number) {
   previousTimeStamp = timeMillisec;
 }
 
-function updatePoseOnly(timeStamp:number) {
+function updatePoseOnly(timeStamp: number) {
   bike.rotation.z = -bodyRotation.value;
   animationFrameHandle = requestAnimationFrame((t) =>
-  runMode.value === 'run' ?
-    updateGraphics(t) : updatePoseOnly(t))
+    runMode.value === "run" ? updateGraphics(t) : updatePoseOnly(t)
+  );
   previousTimeStamp = timeStamp;
   renderer.render(scene, camera);
-
 }
 function updateGraphics(timeStamp: number) {
   // console.debug("Angular velo", driveWheelAngularVelocity)
@@ -400,8 +437,6 @@ function updateGraphics(timeStamp: number) {
     rearAxisVertices[3] = -rearHub.e023;
     rearAxisVertices[4] = rearHub.e013;
     rearAxis.geometry.attributes.position.needsUpdate = true;
-    console.debug("Front axle vertices", frontAxisVertices);
-    console.debug("Rear axle vertices", rearAxisVertices);
   }
   frontPlane.normal.set(
     frontWheelPlane.e1,
@@ -412,10 +447,22 @@ function updateGraphics(timeStamp: number) {
   frontAxisVertices[3] = -frontHub.e023;
   frontAxisVertices[4] = frontHub.e013;
   frontAxis.geometry.attributes.position.needsUpdate = true;
-  steeringWheel.rotation.y = steerDirection;
+  steeringFork.rotation.z = steerDirection;
+  if (Math.abs(steerDirection) > 1e-3) {
+    const rigidRotationOuterRadius = WHEEL_BASE / Math.sin(steerDirection);
+    const rigidRotationInnerRadius = WHEEL_BASE / Math.tan(steerDirection);
+    frontWheelPlaneMesh.scale.y = rigidRotationOuterRadius;
+    frontWheelPlaneMesh.position.y = rigidRotationOuterRadius / 2;
+    rearWheelPlaneMesh.scale.y = rigidRotationInnerRadius;
+    rearWheelPlaneMesh.position.y = rigidRotationInnerRadius / 2;
+  } else {
+    // make it "disappear"
+    frontWheelPlaneMesh.scale.y = 0;
+    rearWheelPlaneMesh.scale.y = 0;
+  }
   animationFrameHandle = requestAnimationFrame((t) =>
-  runMode.value === 'run' ?
-    updateGraphics(t) : updatePoseOnly(t))
+    runMode.value === "run" ? updateGraphics(t) : updatePoseOnly(t)
+  );
   previousTimeStamp = timeStamp;
   renderer.render(scene, camera);
 }
@@ -427,9 +474,14 @@ function makeBike(): Group {
   driveWheel = makeTire(TIRE_RADIUS, TIRE_TUBE_RADIUS);
   // driveWheel.position.x = WHEEL_BASE;
   bikeGroup.add(driveWheel);
+  bikeGroup.add(rearWheelPlaneMesh);
   steeringWheel = makeTire(TIRE_RADIUS, TIRE_TUBE_RADIUS);
-  steeringWheel.translateX(WHEEL_BASE);
-  bikeGroup.add(steeringWheel);
+  // steeringWheel.translateX(WHEEL_BASE);
+  // steeringFork = new Group()
+  steeringFork.translateX(WHEEL_BASE);
+  steeringFork.add(frontWheelPlaneMesh);
+  bikeGroup.add(steeringFork);
+  steeringFork.add(steeringWheel);
   // bikeFrame.rotation.z = Math.PI / 4;
   const bikeFrame = new Group();
   bikeGroup.add(bikeFrame);
@@ -504,12 +556,28 @@ function makeTire(tireRadius: number, tubeRadius: number): Group {
   }
   return tireGroup;
 }
+
+function handleResize() {
+  const { width, height } = useWindowSize()
+  const ASPECT_RATIO = 4/3
+  console.debug("Window is resized to ", width.value, height.value)
+  const requestedWidth = height.value * ASPECT_RATIO
+  const requestedHeight = 0.8*width.value / ASPECT_RATIO
+  console.debug(`Available size ${0.8*width.value}x${height.value}`)
+  console.debug(`Requested size ${requestedWidth.toFixed(0)}x${requestedHeight.toFixed(0)}`)
+  if (requestedWidth > 0.8 * width.value) {
+    console.debug(`Full width canvas ${0.8*width.value}x${requestedHeight}`)
+    renderer.setSize(0.8*width.value, requestedHeight)
+  } else {
+    console.debug(`Full height canvas ${requestedWidth}x${height.value}`)
+    renderer.setSize(requestedWidth, height.value)
+  }
+}
 </script>
 <style lang="scss">
 #glcanvas {
-  width: 800px;
-  height: 600px;
+  //width: 800px;
+  //height: 600px;
   // border: 2px solid red;
 }
 </style>
-~/lib/hanspga
