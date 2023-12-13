@@ -221,7 +221,7 @@ watch(
 watch(
   [() => bodyPosition.value, () => bodyRotation.value],
   ([position, orientation]: [Vector2, number]) => {
-    console.debug(`Changing bike position to (${position.x},${position.y})`);
+    // console.debug(`Changing bike position to (${position.x},${position.y})`);
     bike.position.x = position.x;
     bike.position.y = position.y;
     bike.rotation.z = orientation;
@@ -248,7 +248,7 @@ onMounted(async () => {
 
   console.debug("Canvas at", glcanvas.value);
   camera = new PerspectiveCamera(45, 4 / 3, 0.1, 1000);
-  camera.position.set(1.5 * WHEEL_BASE, 100, 50);
+  camera.position.set(WHEEL_RADIUS, -100, 50);
   camera.up.set(0, 0, 1);
   camera.lookAt(WHEEL_BASE / 2, 0, 5);
   bike = makeBike();
@@ -563,8 +563,6 @@ function handleResize() {
   console.debug("Window is resized to ", width.value, height.value)
   const requestedWidth = height.value * ASPECT_RATIO
   const requestedHeight = 0.8*width.value / ASPECT_RATIO
-  console.debug(`Available size ${0.8*width.value}x${height.value}`)
-  console.debug(`Requested size ${requestedWidth.toFixed(0)}x${requestedHeight.toFixed(0)}`)
   if (requestedWidth > 0.8 * width.value) {
     console.debug(`Full width canvas ${0.8*width.value}x${requestedHeight}`)
     renderer.setSize(0.8*width.value, requestedHeight)
@@ -574,7 +572,7 @@ function handleResize() {
   }
 }
 </script>
-<style lang="scss">
+<style lang="scss" scoped>
 #glcanvas {
   //width: 800px;
   //height: 600px;

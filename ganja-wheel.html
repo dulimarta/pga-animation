@@ -16,7 +16,7 @@
 </head>
 
 <body>
-  <h1>Ganja JS Experiment</h1>
+  <h1>Rolling Disk</h1>
   <div id="main">
     <div>
       <input
@@ -46,7 +46,7 @@
       const makePoint = (x, y, z) => (1e0 + x * 1e1 + y * 1e2 + z * 1e3).Dual
       const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3)
 
-      const NSIDES = 15
+      const NSIDES = 30
       let wheel = [...Array(NSIDES)]
         .map((x,i)=> {
           const angle = 2*i*Math.PI/NSIDES
@@ -55,13 +55,16 @@
 
 
       let state = [
-        makePoint(0.5,-0.5,0), // Initial position
-        0e12          // Rotor
+        makePoint(0.5,0,0), // Initial position
+        0e12       // Rotor
       ]
       function forques(M,B) {
-        const  rot = M >>> (makeDirection(0, -0.6, 0).Vee(wheel[0]))
-        return rot
+        // Apply a line force
+        const  rot = makePoint(0,0.0,0).Vee(makeDirection(0, 0, -0.2))
+        // We must take the Dual!
+        return rot.Dual
       }
+
       // First derivative of state
       function dState ([M,B]) { 
         return  [
@@ -72,18 +75,19 @@
       document.getElementById("ganja-graph").appendChild(this.graph(() => {
         const T = makeDirection(0,1,0).Dot(wheel[0])
         state = state + 0.01 * dState(state)
-        state[0] = state[0].Normalized
-        state[1] = state[1].Grade(2)
+        // state[0] = state[0].Normalized
+        // state[1] = state[1].Grade(2)
         // cube.transform = state[0]
         const newWheel = state[0] >>> wheel
         const fq = state[0] >>> makeDirection(0, 1, 0).Vee(wheel[0])
-        return [`Kinematics & Dynamics ${state[0]}`, //+ rigidRotationCenter.toString(),
+        const toks = state[0].toString().substring(50)
+        return [`Kinematics & Dynamics`, state[0].toString(),
           0xFF7700, newWheel,
           0x0000FF, newWheel[0], 
-          0x000000, fq
+          0x000000, makePoint(0,-0.4,0).Vee(makePoint(-5,-0.4,0))
         ]
       },
-        { grid: true, gl:false, lineWidth:4, animate:true,h: 1.8, p: -0.1 }))
+        { grid: true, gl:false, lineWidth:3, animate:true,h: 1.8, p: -0.1 }))
     })
   </script>
 </body>
