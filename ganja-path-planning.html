@@ -1,0 +1,144 @@
+<html>
+
+<head>
+  <style>
+    #main {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #ganja-graph {
+      width: 500px;
+      border: 1px solid red;
+    }
+  </style>
+  <script src="https://unpkg.com/ganja.js"></script>
+</head>
+
+<body>
+  <h1>Path Planning</h1>
+  <div id="main">
+    <div>
+      <input
+        type="checkbox"
+        id="finaldirection"
+      >
+      <label for="finaldirection">Flip Target Orientation</label>
+    </div>
+    <div id="ganja-graph"></div>
+  </div>
+  <script>
+    // const PGA2D = Algebra(3,0,1);
+    Algebra({ p: 2, q: 0, r: 1 }, () => {
+      console.debug(this.describe())
+      // const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0) //.Normalized
+      const makePoint = (x, y) => (1e0 + x * 1e1 + y * 1e2).Dual
+      const makeDirection = (dx, dy) => !(dx * 1e1 + dy * 1e2).Normalized
+      const initialPoint = makePoint(-1.7, -0.5)
+      const initialDirection = makeDirection(0.1, 0.15).Normalized
+      const finalPoint = makePoint(0.7, 0.1)
+      let finalDirection = makeDirection(-0.1, 0.2).Normalized
+      document.getElementById("finaldirection").addEventListener('change', (ev) => {
+        finalDirection = -finalDirection
+      })
+      document.getElementById("ganja-graph").appendChild(this.graph(() => {
+        const iHead = initialPoint + 0.5 * initialDirection
+        const fHead = finalPoint + 0.5 * finalDirection
+        const line1 = initialPoint.Vee(initialDirection)
+        const line2 = finalPoint.Vee(finalDirection)
+        const p12 = line1.Wedge(line2)
+        const angle1 = Math.acos(line1.Normalized.Dot(line2.Normalized))
+        // const angle2 = Math.asin(p12.Length)
+        const i2p = initialPoint.Vee(p12)
+        const p2f = p12.Vee(finalPoint)
+        let path
+        const i2pDistance = i2p.Dot(initialDirection).e0
+        const p2fDistance = p2f.Dot(finalDirection).e0
+
+        // const bisector = i2pDistance * p2fDistance > 0 ?
+        //   line1.Normalized.Sub(line2.Normalized) :
+        //   line1.Normalized.Add(line2.Normalized)
+        if (i2pDistance * p2fDistance > 0) {
+          let perp1, perp2
+        let pivot
+        let T1, T2
+          const bisector = line1.Normalized.Sub(line2.Normalized)
+          const bisector2 = line1.Normalized.Add(line2.Normalized)
+
+
+          if (Math.abs(i2pDistance) < Math.abs(p2fDistance)) {
+            perp1 = line1.Dot(initialPoint) // Thru initialPoint, perpendicular to line1
+            pivot = bisector.Wedge(perp1)
+            perp2 = line2.Dot(pivot) // Thru pivot, perpendicular to line2
+            T2 = perp2.Wedge(line2)
+            T1 = initialPoint
+            path = "Start &rarr; Rotate to T2 &rarr; Translate to End"
+          } else {
+            perp2 = line2.Dot(finalPoint) // Thru finalPoint, perpendicular to line2
+            pivot = bisector.Wedge(perp2)
+            perp1 = line1.Dot(pivot) // Thru pivot, perpendicular to line1
+            T1 = perp1.Wedge(line1)
+            T2 = finalPoint
+            path = "Start &rarr; Translate to T1 &rarr; Rotate to End"
+          }
+          return [`Path Planning: ${path}`,
+            0x00aa00, initialPoint, "Start", iHead, line1, `${i2pDistance.toFixed(2)}`,
+            0xff0000, finalPoint, "End", fHead, line2, `${p2fDistance.toFixed(2)}`,
+            0x000000, p12, `${(angle1 * 180 / Math.PI).toFixed(2)} degrees`,
+            0xaaaaaa, bisector, pivot, "Pivot",
+            0x00aa00, [T1, pivot], T1, T1 == initialPoint ? "Start" : "T1",
+            0xaa0000, [pivot, T2], T2, T2 == finalPoint ? "End" : "T2",
+
+            // 0xff0000, finalTangent, "T2"
+          ]
+        } else {
+          const bisector2 = line1.Normalized.Add(line2.Normalized)
+          const bisector1 = line1.Normalized.Add(bisector2.Normalized)
+          const bisector3 = bisector2.Normalized.Add(line2.Normalized)
+          let r1 = line1.Dot(initialPoint).Wedge(bisector1)
+          let c1 = bisector2.Dot(r1).Wedge(bisector2)
+          const r2 = line2.Dot(finalPoint).Wedge(bisector3)
+          const c2 = bisector2.Dot(r2).Wedge(bisector2)
+          const ptoc1 = p12.Vee(c1).Length
+          const ptoc2 = p12.Vee(c2).Length
+          let translateOnLine1 = false
+          let recipe = []
+          if (ptoc1 < ptoc2) {
+            path = "Start &rarr; Rotate at R1 to C1 &rarr; Translate to C2 &rarr; Rotate at R2 to End"
+            translateOnLine1 = false
+            recipe = [c1, `C1 ${ptoc1.toFixed(2)}`, [initialPoint,r1], [r1,c1], [c1,c2]]
+          } else {
+            path = "Translate to T1 &rarr; Rotate at R1 to C2 &rarr; Rotate at R2 to End"
+            translateOnLine1 = true
+            r1 = bisector2.Dot(c2).Wedge(bisector1)
+            const t1 = line1.Dot(r1).Wedge(line1)
+            recipe = [t1, "T1", [t1,r1], [r1,c2]]
+          }
+          // midPerp = bisector2.Dot(pivot2)
+          // const pivot1 = midPerp.Wedge(bisector1)
+          // const pivot3 = midPerp.Wedge(bisector3)
+          // const T1 = line1.Dot(pivot1).Wedge(line1)
+          // const T2 = line2.Dot(pivot3).Wedge(line2)
+          return [`Path: ${path}`,
+            0x00aa00, initialPoint, "Start", iHead, line1, `${i2pDistance.toFixed(2)}`,
+            0xff0000, finalPoint, "End", fHead, line2, `${p2fDistance.toFixed(2)}`,
+            0x000000, p12,//`${(angle1 * 180 / Math.PI).toFixed(2)} degrees`,
+            // 0xff00ff, bisector1, bisector2, bisector3,
+            r1, "R1", r2, "R2", ,  c2, `C2 ${ptoc2.toFixed(2)}`,...recipe,  [c2,r2], [r2,finalPoint]
+
+            // 0xbbbbbb, pivot2, "P2", bisector2, bisector1, bisector3, //pivot1, "P1", T1, "T1", bisector3, pivot3, "P3", T2, 
+            // pivot1, pivot3,
+            // // "T2",
+            // [T1, pivot1], 
+            // [pivot1,pivot2], [pivot2,pivot3], 
+            // [pivot3, T2]
+          ]
+        }
+        s
+      },
+        { grid: true, gl: false, lineWidth: 3, animate: true }))
+    })
+  </script>
+</body>
+
+</html>
