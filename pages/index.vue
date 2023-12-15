@@ -4,7 +4,7 @@
     <div class="flex-child">
       <v-tabs v-model="currentTab" @update:modelValue="setRunMode">
         <v-tab>Run</v-tab>
-        <v-tab>Setup</v-tab>
+        <v-tab>Path Planner</v-tab>
       </v-tabs>
       <v-window v-model="currentTab" >
         <v-window-item>
@@ -16,6 +16,7 @@
           />
         </v-window-item>
         <v-window-item>
+          <!-- path planner -->
           <FloorMap />
         </v-window-item>
       </v-window>
@@ -30,7 +31,7 @@ const { bodyPosition, runMode } = storeToRefs(store);
 const currentTab = ref(0);
 
 function setRunMode() {
-  runMode.value = currentTab.value === 0 ? "run" : "setup"    
+  runMode.value = currentTab.value === 0 ? "run" : "plan"    
 }
 </script>
 <style scoped lang="scss">

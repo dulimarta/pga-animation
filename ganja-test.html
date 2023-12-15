@@ -42,7 +42,7 @@
       const origin = makePoint(0,0,0)
       const A = makePoint(0.2, 0, -1)
       const B = makePoint(1, 0, 0.8)
-      const C = makePoint(-0.5, -1, 0)
+      const C = makePoint(-0.5, -1, 0.1)
       const lineBC = () => B.Vee(C)
       const mistery = () => {
         const out = origin.Vee(lineBC()) // plane thru origin and line BC
@@ -52,9 +52,10 @@
       // const D = () => lineBC.Grade(2)
       console.debug("Line BC", lineBC().Grade(2))
 
-      const CDir = makeDirection(-0.5, 0.25, 0)
+      const CDir = makeDirection(-0.5, 0.25, 0.8)
       // Create a line thru C and direction vector CDir
       const cLine = C.Vee(CDir)
+      const cLine2 = CDir.Vee(C)
       // Create a plane thru C and perpendicular to cLine
       const cPlane = C.Dot(cLine)
       // Or alternatively cLine.Dot(C)
@@ -81,6 +82,10 @@
         // console.debug("Rotated plane is ", b, b.toString())
         return b
       }
+      function dump(x) {
+        return `${x.e01.toFixed(2)}e01 ${x.e02.toFixed(2)}e02 ${x.e03.toFixed(2)}e03` +
+        ` ${x.e12.toFixed(2)}e12 ${x.e13.toFixed(2)}e13 ${x.e23.toFixed(2)}e23`
+      }
       document.getElementById("slider").addEventListener('input', (ev) => {
         // console.debug("Slider change", ev.target.value)
         rotationAngle = ev.target.value / 180 * Math.PI
@@ -102,15 +107,15 @@
         const planeThruLine = lineBC().Vee(origin)
         const planePerpLine = lineBC().Dual.Vee(origin)
         const A2BC = A.Vee(lineBC()).Length
-        return [`Distance ${A2BC}`,
+        return [dump(cLine) + dump(cLine2),
           // 0xFF0000, [A,B],
           0x0000FF, origin, "O",
           A, "A", 
           0x000000, C,  "C",
-          B, "B", lineBC,
+          B, "B", //lineBC,
 
-          0xFF0000, planeThruLine,
-          0x00FF00, planePerpLine.Wedge(lineBC())
+          // 0xFF0000, planeThruLine,
+          // 0x00FF00, planePerpLine.Wedge(lineBC())
           // 0xFF0000, mistery, `Mistery Direction [${xx.toFixed(2)},${yy.toFixed(2)},${zz.toFixed(2)}]`
           // + ` (${x.toFixed(2)},${y.toFixed(2)},${z.toFixed(2)})`,
           // 0x0000FF, what, `Plane normal ${what.toString()}`,
@@ -118,7 +123,7 @@
           // D, "D on BC"
           // 0xFF0000, CDir,
           // 0x00FF00, horizPlane, "Plane",
-          // 0x448800, cLine,
+          0x448800, cLine, cLine2,
           // 0x448800, cPlane,
           // 0xFF00ff, rp,
           // 0x000088, intersection,

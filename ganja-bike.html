@@ -8,14 +8,15 @@
     }
 
     #ganja-graph {
-      width: 500px border: 1px solid red;
+      width: 500px;
+       border: 1px solid red;
     }
   </style>
   <script src="https://unpkg.com/ganja.js"></script>
 </head>
 
 <body>
-  <h1>Ganja JS Experiment</h1>
+  <h1>Bike Kinematics</h1>
   <div id="main">
     <div>
       <input
@@ -40,10 +41,10 @@
   <script>
     // const PGA2D = Algebra(3,0,1);
     Algebra({ p: 3, q: 0, r: 1 }, () => {
-      console.debug(this.describe())
-      const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0) //.Normalized
+      // console.debug(this.describe())
+      const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0).Normalized
       const makePoint = (x, y, z) => !(1e0 + x * 1e1 + y * 1e2 + z * 1e3)
-      const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3)
+      const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3).Normalized
       const makeMotor = (axis, angle) => {
 
         // const out = Math.E ** ((angle/2) * axis)
@@ -89,7 +90,7 @@
         return r
       }
       document.getElementById("steer").addEventListener('input', (ev) => {
-        // console.debug("Slider change", ev.target.value)
+        console.debug("Slider change", ev.target.value)
         const delta = ev.target.value - steerAngle
         const steerRotor = makeMotor(steerAxis(), -delta * Math.PI / 180)
         frontPlane = steerRotor >>> frontPlane
@@ -123,7 +124,7 @@
           0x0000ff, steerAngle ? rigidRotationAxis : ""
         ]
       },
-        { grid: true, labels: true, lineWidth: 3, h: 1.8, p: -0.1, animate: false, width: 800 }))
+        { grid: true, labels: true, lineWidth: 3, h: 1.8, p: -0.1, animate: true, width: 800 }))
     })
   </script>
 </body>

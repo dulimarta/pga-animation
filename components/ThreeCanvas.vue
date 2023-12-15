@@ -10,34 +10,29 @@ import {
   Scene,
   WebGLRenderer,
   Mesh,
-  TorusGeometry,
   Group,
-  CylinderGeometry,
-  Matrix4,
   MathUtils,
-  AxesHelper,
   PlaneGeometry,
   TextureLoader,
   AmbientLight,
   RepeatWrapping,
   PointLight,
   Plane,
-  MeshPhongMaterial,
   MeshStandardMaterial,
   Vector3,
   BufferGeometry,
   Line,
   LineBasicMaterial,
   PlaneHelper,
-  SphereGeometry,
   BufferAttribute,
   Vector2,
   MeshBasicMaterial,
   DoubleSide,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
+import { useVisualStore } from "~/store/visual-store";
 import { storeToRefs } from "pinia";
-import { useWindowSize, useResizeObserver } from '@vueuse/core'
+import { useWindowSize, useResizeObserver } from "@vueuse/core";
 
 const {
   makePoint,
@@ -74,6 +69,10 @@ let {
   showGeometry,
   runMode,
 } = storeToRefs(PGAStore);
+const visualStore = useVisualStore();
+const { makePipe, makeSphere, makeTire } = visualStore;
+const { visualScene } = storeToRefs(visualStore);
+const initialMarker = makePipe(10, 5, "purple");
 let driveWheelAngle = 0;
 let driveWheelAngularVelocity = 0;
 // let driveWheelAngularIncrement = 0;
@@ -93,7 +92,8 @@ let rotationalMotion = false;
 let rigidRotationAngleOrTranslation = 0;
 const textureLoader = new TextureLoader();
 const scene = new Scene();
-scene.add(new AxesHelper(12));
+visualScene.value = scene;
+// scene.add(new AxesHelper(12));
 scene.add(new AmbientLight());
 const light = new PointLight(0xffffff, 10000);
 // light.target.position.set(0,0,30)
@@ -181,39 +181,58 @@ frontAxisVertices[2] = WHEEL_RADIUS;
 frontAxisVertices[3] = WHEEL_BASE;
 frontAxisVertices[4] = 0;
 frontAxisVertices[5] = WHEEL_RADIUS;
-if (showGeometry.value) {
-  scene.add(rearPlaneHelper);
-  scene.add(frontPlaneHelper);
-  scene.add(rearSphere);
-  scene.add(frontSphere);
-  scene.add(rearAxis);
-  scene.add(frontAxis);
-  if (steeringFork) steeringFork!.add(rearWheelPlaneMesh);
+
+function removeVisualAccessories() {
+  scene.remove(frontPlaneHelper);
+  scene.remove(rearPlaneHelper);
+  scene.remove(rotAxisObj);
+  // scene.remove(frontSphere);
+  // scene.remove(rearSphere);
+  scene.remove(frontAxis);
+  scene.remove(rearAxis);
+  steeringFork.remove(frontWheelPlaneMesh);
+  bike.remove(rearWheelPlaneMesh);
 }
+function addVisualAccessories() {
+  scene.add(frontPlaneHelper);
+  scene.add(rearPlaneHelper);
+  scene.add(rotAxisObj);
+  // scene.add(frontSphere);
+  // scene.add(rearSphere);
+  scene.add(frontAxis);
+  scene.add(rearAxis);
+  steeringFork.add(frontWheelPlaneMesh);
+  bike.add(rearWheelPlaneMesh);
+}
+watch(
+  () => runMode.value,
+  (currentMode: "plan" | "run") => {
+    if (currentMode == "plan") {
+      if (showGeometry.value) removeVisualAccessories();
+      camera.position.set(0, -500, 800);
+      camera.lookAt(0, -200, 0);
+      bike.remove(camera);
+      scene.add(camera);
+    } else {
+      if (showGeometry.value) addVisualAccessories();
+      camera.position.set(WHEEL_RADIUS, -100, 50);
+      camera.lookAt(WHEEL_BASE / 2, 0, 5);
+      scene.remove(camera);
+    }
+
+    // if (currentMode == 'plan') {
+    //   scene.add(initialMarker)
+    // }
+  }
+);
 
 watch(
   () => showGeometry.value,
   (showGeo: boolean) => {
     if (showGeo) {
-      scene.add(frontPlaneHelper);
-      scene.add(rearPlaneHelper);
-      scene.add(rotAxisObj);
-      scene.add(frontSphere);
-      scene.add(rearSphere);
-      scene.add(frontAxis);
-      scene.add(rearAxis);
-      steeringFork.add(frontWheelPlaneMesh);
-      bike.add(rearWheelPlaneMesh);
+      addVisualAccessories();
     } else {
-      scene.remove(frontPlaneHelper);
-      scene.remove(rearPlaneHelper);
-      scene.remove(rotAxisObj);
-      scene.remove(frontSphere);
-      scene.remove(rearSphere);
-      scene.remove(frontAxis);
-      scene.remove(rearAxis);
-      steeringFork.remove(frontWheelPlaneMesh);
-      bike.remove(rearWheelPlaneMesh);
+      removeVisualAccessories();
     }
   }
 );
@@ -246,8 +265,7 @@ onMounted(async () => {
   // ground.add(new AxesHelper(6))
   scene.add(ground);
 
-  console.debug("Canvas at", glcanvas.value);
-  camera = new PerspectiveCamera(45, 4 / 3, 0.1, 1000);
+  camera = new PerspectiveCamera(50, 4 / 3, 0.1, 1000);
   camera.position.set(WHEEL_RADIUS, -100, 50);
   camera.up.set(0, 0, 1);
   camera.lookAt(WHEEL_BASE / 2, 0, 5);
@@ -255,7 +273,6 @@ onMounted(async () => {
   bike.add(camera);
   // steeringFork.add(frontWheelPlaneMesh);
   bike.add(light);
-  // scene.add(camera)
   scene.add(bike);
   renderer = new WebGLRenderer({
     canvas: glcanvas.value!,
@@ -269,10 +286,12 @@ onMounted(async () => {
   // );
 
   renderer.setClearColor(Math.random() * 0xffffff, 1);
-  handleResize()
-  // if (animationFrameHandle != null) cancelAnimationFrame(animationFrameHandle);
+  handleResize();
+  if (showGeometry.value) {
+    addVisualAccessories();
+  }
   updateGraphics(0);
-  window.addEventListener('resize', handleResize)
+  window.addEventListener("resize", handleResize);
 });
 
 onBeforeUnmount(() => {
@@ -417,6 +436,7 @@ function updatePoseOnly(timeStamp: number) {
   previousTimeStamp = timeStamp;
   renderer.render(scene, camera);
 }
+
 function updateGraphics(timeStamp: number) {
   // console.debug("Angular velo", driveWheelAngularVelocity)
   if (!brakeApplied.value) {
@@ -507,68 +527,15 @@ function makeBike(): Group {
   return bikeGroup;
 }
 
-function makeSphere(radius: number, color?: string): Mesh {
-  const sphereGeo = new SphereGeometry(radius, 20, 10);
-  const sphereMat = new MeshPhongMaterial({ color: color ?? "grey" });
-  return new Mesh(sphereGeo, sphereMat);
-}
-
-function makePipe(
-  pipeLength: number,
-  pipeRadius: number,
-  color?: string
-): Mesh {
-  const cylinderGeometry = new CylinderGeometry(
-    pipeRadius,
-    pipeRadius,
-    pipeLength
-  );
-  const cylinderMaterial = new MeshPhongMaterial({ color: color ?? "grey" });
-  const mesh = new Mesh(cylinderGeometry, cylinderMaterial);
-  mesh.castShadow = true;
-  // mesh.add(new AxesHelper(12))
-  return mesh;
-}
-
-function makeTire(tireRadius: number, tubeRadius: number): Group {
-  const NUM_SPOKES = 6;
-  const tireGroup = new Group();
-  tireGroup.translateZ(tubeRadius + tireRadius);
-  tireGroup.rotateX(Math.PI / 2);
-  // tireGroup.add(new AxesHelper(10))
-  const torusGeometry = new TorusGeometry(tireRadius, tubeRadius, 10);
-  const torusMaterial = new MeshPhongMaterial({ color: 0x555555 });
-  const tire = new Mesh(torusGeometry, torusMaterial);
-  tire.castShadow = true;
-  tireGroup.add(tire);
-  const translation = new Matrix4().makeTranslation(0, tireRadius / 2, 0);
-  const rotation = new Matrix4();
-  for (let k = 0; k < NUM_SPOKES; k++) {
-    const spoke = makePipe(
-      tireRadius,
-      0.6 * tubeRadius,
-      k === 0 ? "lightgreen" : "white"
-    );
-    rotation.makeRotationZ((k * 2 * Math.PI) / NUM_SPOKES);
-    spoke.applyMatrix4(translation);
-    spoke.applyMatrix4(rotation);
-    tireGroup.add(spoke);
-  }
-  return tireGroup;
-}
-
 function handleResize() {
-  const { width, height } = useWindowSize()
-  const ASPECT_RATIO = 4/3
-  console.debug("Window is resized to ", width.value, height.value)
-  const requestedWidth = height.value * ASPECT_RATIO
-  const requestedHeight = 0.8*width.value / ASPECT_RATIO
+  const { width, height } = useWindowSize();
+  const ASPECT_RATIO = 4 / 3;
+  const requestedWidth = height.value * ASPECT_RATIO;
+  const requestedHeight = (0.8 * width.value) / ASPECT_RATIO;
   if (requestedWidth > 0.8 * width.value) {
-    console.debug(`Full width canvas ${0.8*width.value}x${requestedHeight}`)
-    renderer.setSize(0.8*width.value, requestedHeight)
+    renderer.setSize(0.8 * width.value, requestedHeight);
   } else {
-    console.debug(`Full height canvas ${requestedWidth}x${height.value}`)
-    renderer.setSize(requestedWidth, height.value)
+    renderer.setSize(requestedWidth, height.value);
   }
 }
 </script>
