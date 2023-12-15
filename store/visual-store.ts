@@ -1,8 +1,18 @@
 import { defineStore } from "pinia";
-import { Group,Mesh, AxesHelper, CylinderGeometry, MeshPhongMaterial, SphereGeometry, TorusGeometry, Matrix4, Scene } from "three";
+import {
+  Group,
+  Mesh,
+  Vector3,
+  CylinderGeometry,
+  MeshPhongMaterial,
+  SphereGeometry,
+  TorusGeometry,
+  Matrix4,
+  Scene,
+  Camera,
+} from "three";
 
-export const useVisualStore = defineStore('visual', () => {
-
+export const useVisualStore = defineStore("visual", () => {
   function makePipe(
     pipeLength: number,
     pipeRadius: number,
@@ -24,14 +34,14 @@ export const useVisualStore = defineStore('visual', () => {
     const sphereMat = new MeshPhongMaterial({ color: color ?? "grey" });
     return new Mesh(sphereGeo, sphereMat);
   }
-  
+
   function makeCone(baseRadius: number, height: number, color?: string): Mesh {
     return new Mesh(
       new CylinderGeometry(0, baseRadius, height, 20),
       new MeshPhongMaterial({
-        color: color ?? "white"
+        color: color ?? "white",
       })
-    )
+    );
   }
   function makeTire(tireRadius: number, tubeRadius: number): Group {
     const NUM_SPOKES = 6;
@@ -59,20 +69,32 @@ export const useVisualStore = defineStore('visual', () => {
     }
     return tireGroup;
   }
-  function makeArrow(length:number, thickness:number, color:string): Group {
+  function makeArrow(length: number, thickness: number, color: string): Group {
     // const ARROW_LENGTH = 30
-    const g = new Group()
-    // g.add(new AxesHelper(8))
-    g.add(makePipe(length, thickness,color))
-    const arrowHead = makeCone(2*thickness, 0.1*length, color)
-    arrowHead.translateY(length/2)
-    g.rotateZ(-Math.PI/2)
-    g.translateY(length/2)
-    g.add(arrowHead)
-
-    return g
+    const g = new Group();
+    // g.add(new AxesHelper(length * 1.5))
+    const arrowBody = makePipe(length, thickness, color);
+    arrowBody.translateY(length / 2);
+    g.add(arrowBody);
+    const arrowHead = makeCone(2 * thickness, 0.1 * length, color);
+    arrowHead.translateY(length);
+    g.rotateZ(-Math.PI / 2);
+    g.add(arrowHead);
+    return g;
   }
   // const initialMarker: Ref<Group> = ref(makeArrow())
-  const visualScene: Ref<Scene|null> = ref(null)
-  return { makePipe, makeSphere, makeTire, visualScene, makeArrow}
-})
+  const visualScene: Ref<Scene | null> = ref(null);
+  const visualCamera: Ref<Camera | null> = ref(null);
+  const mousePositionOnGround = ref(new Vector3());
+  const mouseWheelDirection = ref(0);
+  return {
+    makePipe,
+    makeSphere,
+    makeTire,
+    visualScene,
+    makeArrow,
+    visualCamera,
+    mousePositionOnGround,
+    mouseWheelDirection,
+  };
+});

@@ -8,7 +8,7 @@ import {
   SphereGeometry,
   Vector3,
 } from "three";
-const PGA2D = Algebra(2, 0, 1);
+const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
 // console.debug("In composable", PGA3D);
 interface GAElement {
@@ -16,12 +16,10 @@ interface GAElement {
 }
 
 export function usePGA2D() {
-  function makePoint(x: number, y: number): GAElement {
+  function makePoint(x: number, y: number) {
     // const p = new PGA2D([0, 0, 0, 0, y, -x, 1])
     // console.debug("Using arg", p.toString())
-    const p = new PGA2D();
-
-    p.nVector(2, y, -x, 1);
+    const p = new PGA2D().nVector(1, 1, x, y).Dual;
     // console.debug(`Point (${x},${y}) => `, p.toString(), p)
     return p;
   }

@@ -28,11 +28,14 @@ import {
   Vector2,
   MeshBasicMaterial,
   DoubleSide,
+  Raycaster,
+Object3D,
+Intersection,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { useVisualStore } from "~/store/visual-store";
 import { storeToRefs } from "pinia";
-import { useWindowSize, useResizeObserver } from "@vueuse/core";
+import { useWindowSize } from "@vueuse/core";
 
 const {
   makePoint,
@@ -70,9 +73,8 @@ let {
   runMode,
 } = storeToRefs(PGAStore);
 const visualStore = useVisualStore();
-const { makePipe, makeSphere, makeTire } = visualStore;
-const { visualScene } = storeToRefs(visualStore);
-const initialMarker = makePipe(10, 5, "purple");
+const { makePipe, makeSphere, makeTire, makeArrow } = visualStore;
+const { visualScene, visualCamera, mousePositionOnGround, mouseWheelDirection } = storeToRefs(visualStore);
 let driveWheelAngle = 0;
 let driveWheelAngularVelocity = 0;
 // let driveWheelAngularIncrement = 0;
@@ -91,6 +93,8 @@ let rotationalMotion = false;
 // let rigidRotationRadius = Number.POSITIVE_INFINITY;
 let rigidRotationAngleOrTranslation = 0;
 const textureLoader = new TextureLoader();
+const rayCaster = new Raycaster();
+const mousePointerPosition = new Vector2();
 const scene = new Scene();
 visualScene.value = scene;
 // scene.add(new AxesHelper(12));
@@ -197,7 +201,7 @@ function addVisualAccessories() {
   scene.add(frontPlaneHelper);
   scene.add(rearPlaneHelper);
   scene.add(rotAxisObj);
-  // scene.add(frontSphere);
+  scene.add(frontSphere);
   // scene.add(rearSphere);
   scene.add(frontAxis);
   scene.add(rearAxis);
@@ -213,11 +217,15 @@ watch(
       camera.lookAt(0, -200, 0);
       bike.remove(camera);
       scene.add(camera);
+      glcanvas.value?.addEventListener("mousemove",trackMouseIn3D);
+      glcanvas.value?.addEventListener("wheel",trackWheel);
     } else {
       if (showGeometry.value) addVisualAccessories();
       camera.position.set(WHEEL_RADIUS, -100, 50);
       camera.lookAt(WHEEL_BASE / 2, 0, 5);
       scene.remove(camera);
+      glcanvas.value?.removeEventListener("mousemove",trackMouseIn3D);
+      glcanvas.value?.removeEventListener("wheel",trackWheel);
     }
 
     // if (currentMode == 'plan') {
@@ -247,7 +255,7 @@ watch(
   },
   { deep: true }
 );
-
+let ground: Mesh;
 onMounted(async () => {
   const floorTexture = await textureLoader.loadAsync("floor-wood.jpg");
   floorTexture.wrapS = RepeatWrapping;
@@ -259,13 +267,15 @@ onMounted(async () => {
     map: floorTexture,
     // color: 'blue'
   });
-  const ground = new Mesh(groundPlane, groundMaterial);
+  ground = new Mesh(groundPlane, groundMaterial);
   ground.receiveShadow = true;
   ground.castShadow = false;
   // ground.add(new AxesHelper(6))
   scene.add(ground);
 
   camera = new PerspectiveCamera(50, 4 / 3, 0.1, 1000);
+  // rayCaster.setFromCamera(mousePointerPosition, camera);
+  visualCamera.value = camera;
   camera.position.set(WHEEL_RADIUS, -100, 50);
   camera.up.set(0, 0, 1);
   camera.lookAt(WHEEL_BASE / 2, 0, 5);
@@ -279,6 +289,7 @@ onMounted(async () => {
     antialias: true,
   });
   renderer.shadowMap.enabled = true;
+  renderer.setPixelRatio(window.devicePixelRatio)
   // renderer.shadowMap.type = BasicShadowMap
   // renderer.setSize(
   //   glcanvas.value?.clientWidth ?? 400,
@@ -294,6 +305,29 @@ onMounted(async () => {
   window.addEventListener("resize", handleResize);
 });
 
+function trackMouseIn3D(ev: MouseEvent) {
+  if (!ev.shiftKey) return
+  mousePointerPosition.x = 2 * (ev.clientX / glcanvas.value!.clientWidth) - 1;
+  mousePointerPosition.y = 1 - 2 * (ev.clientY / glcanvas.value!.clientHeight);
+  // console.debug("Mouse on canvas", mousePointerPosition.x.toFixed(3), mousePointerPosition.y.toFixed(3))
+  rayCaster.setFromCamera(mousePointerPosition, camera);
+  const what = rayCaster.intersectObject(ground);
+  if (what.length > 0) {
+    mousePositionOnGround.value.copy(what[0].point)
+  }
+}
+let wheelTimer:any = null
+function trackWheel(ev: WheelEvent) {
+  if (!ev.shiftKey) return
+  // console.debug("Mouse scroll", ev.deltaY, "mode", ev.deltaMode)
+  mouseWheelDirection.value = ev.deltaY
+  clearTimeout(wheelTimer)
+  wheelTimer = setTimeout(() => {
+    wheelTimer = null
+    mouseWheelDirection.value = 0
+  }, 100)
+
+}
 onBeforeUnmount(() => {
   if (animationFrameHandle != null) cancelAnimationFrame(animationFrameHandle);
 });
@@ -484,6 +518,7 @@ function updateGraphics(timeStamp: number) {
     runMode.value === "run" ? updateGraphics(t) : updatePoseOnly(t)
   );
   previousTimeStamp = timeStamp;
+
   renderer.render(scene, camera);
 }
 
