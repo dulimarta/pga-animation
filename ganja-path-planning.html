@@ -63,7 +63,7 @@
         let pivot
         let T1, T2
           const bisector = line1.Normalized.Sub(line2.Normalized)
-          const bisector2 = line1.Normalized.Add(line2.Normalized)
+          // const bisector2 = line1.Normalized.Add(line2.Normalized)
 
 
           if (Math.abs(i2pDistance) < Math.abs(p2fDistance)) {
@@ -82,8 +82,8 @@
             path = "Start &rarr; Translate to T1 &rarr; Rotate to End"
           }
           return [`Path Planning: ${path}`,
-            0x00aa00, initialPoint, "Start", iHead, line1, `${i2pDistance.toFixed(2)}`,
-            0xff0000, finalPoint, "End", fHead, line2, `${p2fDistance.toFixed(2)}`,
+            0x00aa00, initialPoint, "Start", iHead, line1, `${line1.toString()}`,
+            0xff0000, finalPoint, "End", fHead, line2, `${line2.toString()}`,
             0x000000, p12, `${(angle1 * 180 / Math.PI).toFixed(2)} degrees`,
             0xaaaaaa, bisector, pivot, "Pivot",
             0x00aa00, [T1, pivot], T1, T1 == initialPoint ? "Start" : "T1",
@@ -120,8 +120,8 @@
           // const T1 = line1.Dot(pivot1).Wedge(line1)
           // const T2 = line2.Dot(pivot3).Wedge(line2)
           return [`Path: ${path}`,
-            0x00aa00, initialPoint, "Start", iHead, line1, `${i2pDistance.toFixed(2)}`,
-            0xff0000, finalPoint, "End", fHead, line2, `${p2fDistance.toFixed(2)}`,
+            0x00aa00, initialPoint, "Start", iHead, line1, `${line1.toString()}`,
+            0xff0000, finalPoint, "End", fHead, line2, `${line2.toString()}`,
             0x000000, p12,//`${(angle1 * 180 / Math.PI).toFixed(2)} degrees`,
             r1, "R1", r2, "R2", ,  c2, `C2 ${ptoc2.toFixed(2)}`,...recipe,  [c2,r2], [r2,finalPoint],
             0x99bb99, bisector1, bisector2, bisector3,

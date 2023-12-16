@@ -16,8 +16,7 @@
           />
         </v-window-item>
         <v-window-item>
-          <!-- path planner -->
-          <FloorMap />
+          <PathPlanner />
         </v-window-item>
       </v-window>
     </div>

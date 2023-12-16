@@ -31,6 +31,7 @@ import {
   Raycaster,
 Object3D,
 Intersection,
+AxesHelper,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { useVisualStore } from "~/store/visual-store";
@@ -97,8 +98,9 @@ const rayCaster = new Raycaster();
 const mousePointerPosition = new Vector2();
 const scene = new Scene();
 visualScene.value = scene;
-// scene.add(new AxesHelper(12));
+scene.add(new AxesHelper(120));
 scene.add(new AmbientLight());
+scene.add(makeArrow(70, 3, "yellow"))
 const light = new PointLight(0xffffff, 10000);
 // light.target.position.set(0,0,30)
 light.position.set(0, 40, 80);
@@ -201,7 +203,7 @@ function addVisualAccessories() {
   scene.add(frontPlaneHelper);
   scene.add(rearPlaneHelper);
   scene.add(rotAxisObj);
-  scene.add(frontSphere);
+  // scene.add(frontSphere);
   // scene.add(rearSphere);
   scene.add(frontAxis);
   scene.add(rearAxis);

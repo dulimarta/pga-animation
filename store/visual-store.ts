@@ -74,11 +74,12 @@ export const useVisualStore = defineStore("visual", () => {
     const g = new Group();
     // g.add(new AxesHelper(length * 1.5))
     const arrowBody = makePipe(length, thickness, color);
+    arrowBody.rotateZ(-Math.PI/2)
     arrowBody.translateY(length / 2);
     g.add(arrowBody);
     const arrowHead = makeCone(2 * thickness, 0.1 * length, color);
+    arrowHead.rotateZ(-Math.PI/2)
     arrowHead.translateY(length);
-    g.rotateZ(-Math.PI / 2);
     g.add(arrowHead);
     return g;
   }

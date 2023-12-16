@@ -17,13 +17,14 @@ interface GAElement {
 
 export function usePGA2D() {
   function makePoint(x: number, y: number) {
-    // const p = new PGA2D([0, 0, 0, 0, y, -x, 1])
-    // console.debug("Using arg", p.toString())
     const p = new PGA2D().nVector(1, 1, x, y).Dual;
-    // console.debug(`Point (${x},${y}) => `, p.toString(), p)
     return p;
   }
-  return { makePoint };
+  function makeDirection(dx: number, dy: number) {
+    const d = new PGA2D().nVector(1, 0, dx, dy).Dual.Normalized
+    return d
+  }
+  return { makePoint, makeDirection };
 }
 
 export function usePGA3D() {
