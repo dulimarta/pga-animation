@@ -1,6 +1,7 @@
 \documentclass[border=4mm]{standalone}
 \usepackage{tikz}
-\usetikzlibrary{calc}
+\usepackage{tkz-euclide}
+\usetikzlibrary{calc,intersections}
 \newcommand{\Wheel}[3]{
   \begin{scope}[shift={#1},rotate=#2]
     \draw[rounded corners=9,#3] (-1,-5) rectangle (1,5);
@@ -11,9 +12,48 @@
 \bigskip
 \begin{tikzpicture}[x=3mm,y=3mm]
   \draw (0,0) -- (10,0);
-  \draw (0,0) -- (0,20);
+  \draw[fill,red] (-0.3,0) rectangle (0.3,20);
   \Wheel{(0,0)}{0}{black};
-  \Wheel{(0,20)}{30}{red};
-  \Wheel{(0,20)}{60}{red!30!blue};
+  \begin{scope}[shift={(0,20)},rotate=40]
+    \draw[dashed] (0,-7) -- (0,7);
+    \draw[dashed] (3,0) -- (-35,0);
+    \Wheel{(0,0)}{0}{black};
+  \end{scope}
+  \coordinate (P) at (-{20/tan(40)},0);
+  \draw[red] (P) circle [radius=2pt];
+  \draw[dashed] (0,0) -- (P);
+  % \Wheel{(0,20)}{60}{red!30!blue};
+\end{tikzpicture}
+
+
+Geometry of turn
+\begin{tikzpicture}
+  \coordinate (S) at (0,0);
+  \path (S) +(80:1) coordinate (T);
+  \coordinate (U) at (4,3);
+  \path (U) + (-60:1) coordinate (V);
+  \draw[fill] (S) circle [radius=2pt]; 
+  \node at (S) [left]{S};
+  \draw[fill] (U) circle [radius=2pt];
+  \node at (U) [right]{U};
+  % \node at (S1)[left] {Start};
+  \draw[name path=S--T,->] (S) -- (T);
+  % \draw[->,thick] (S1) -- (S2);
+  \draw[name path=U--V,->] (U) -- (V);
+  % Intersection point
+  % \coordinate (X) at (intersection of L1 and L2);
+  \coordinate (X) at (intersection of S--T and U--V);
+  \draw[red,fill] (X) circle [radius=2pt];
+  \draw[dashed] (T) -- (X) -- (U);
+  \tkzInCenter(S,X,V)
+  \tkzGetPoint{R}
+  \path[name path global=bisector] (X) -- (R);
+  \draw[name path global=vperp] ($(U)!2cm!270:(V)$) -- ($(U)!0.2cm!90:(V)$);
+  % \path[orange,name intersections={of=vperp and bisector,by=P}];
+  % \tkzDefLine[orthogonal=through U](X,V)
+  % \tkzDrawLine(U,tkzPointResult)
+  % \tkzDrawPoint(R);
+  \coordinate (P) at (intersection of bisector and U--V);
+  
 \end{tikzpicture}
 \end{document}

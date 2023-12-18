@@ -87,7 +87,7 @@ export const useVisualStore = defineStore("visual", () => {
   const visualScene: Ref<Scene | null> = ref(null);
   const visualCamera: Ref<Camera | null> = ref(null);
   const mousePositionOnGround = ref(new Vector3());
-  const mouseWheelDirection = ref(0);
+  const mouseWheelScrollAmount = ref(0);
   return {
     makePipe,
     makeSphere,
@@ -96,6 +96,6 @@ export const useVisualStore = defineStore("visual", () => {
     makeArrow,
     visualCamera,
     mousePositionOnGround,
-    mouseWheelDirection,
+    mouseWheelScrollAmount,
   };
 });

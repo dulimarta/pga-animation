@@ -32,20 +32,21 @@
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
-import { MathUtils, Raycaster, Vector2, Vector3 } from "three";
+import { MathUtils, Vector3 } from "three";
 import { useVisualStore } from "~/store/visual-store";
 const { makePoint, makeDirection } = usePGA2D();
 const CANVAS_SIZE = 320;
+const MARKER_LENGTH = 50;
 // const box: Ref<HTMLCanvasElement | null> = ref(null);
 const store = usePGAStore();
 const visualStore = useVisualStore();
 const { /*bodyPosition, bodyRotation, */ runMode } = storeToRefs(store);
-const { makeArrow, makeSphere } = visualStore;
+const { makeArrow, makeSphere, makePipe } = visualStore;
 const {
   visualScene,
   visualCamera,
   mousePositionOnGround,
-  mouseWheelDirection,
+  mouseWheelScrollAmount,
 } = storeToRefs(visualStore);
 // const initialPose = new Vector2();
 // const finalPose = new Vector2();
@@ -55,18 +56,20 @@ const debugText = ref("N/A");
 // let arrowOrientation = 0;
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
-const initialMarker = makeArrow(50, 4, "green");
-const finalMarker = makeArrow(50, 4, "red");
+const initialMarker = makeArrow(MARKER_LENGTH, 4, "green");
+const finalMarker = makeArrow(MARKER_LENGTH, 4, "red");
 const initialMarkerShown = ref(false);
 const finalMarkerShown = ref(false);
 const intersectionSphere = makeSphere(5, "blue");
-const rotationPivotSphere = makeSphere(5, "yellow")
-const transitionSphere = makeSphere(8, "white")
+const rotationPivotSphere = makeSphere(5, "yellow");
+const transitionSphere = makeSphere(8, "white");
+const transitionPipe = makePipe(1, 4, "white");
 // let activeMarker = initialMarker;
 onMounted(() => {
   visualScene.value?.add(intersectionSphere);
   visualScene.value?.add(rotationPivotSphere);
   visualScene.value?.add(transitionSphere);
+  visualScene.value?.add(transitionPipe);
 });
 
 watch(
@@ -91,17 +94,20 @@ function within360(x: number) {
   if (x < 0) return x + 360;
   return x;
 }
+let lastMouseWheelScrollAmount = 0;
 watch(
-  [() => mousePositionOnGround.value, () => mouseWheelDirection.value],
+  [() => mousePositionOnGround.value, () => mouseWheelScrollAmount.value],
   ([pos, wheel]: [Vector3, number]) => {
     checkMarkersVisibility();
+    const wheelScrollAmount = 0.8 * lastMouseWheelScrollAmount + 0.2 * wheel;
+    lastMouseWheelScrollAmount = wheel;
     if (activePose.value === "initial") {
-      initialOrientation.value += wheel / 2;
+      initialOrientation.value += wheelScrollAmount;
       initialOrientation.value = within360(initialOrientation.value);
       initialMarker.position.copy(pos);
       initialMarker.rotation.z = MathUtils.degToRad(initialOrientation.value);
     } else {
-      finalOrientation.value += wheel / 2;
+      finalOrientation.value += wheelScrollAmount;
       finalOrientation.value = within360(finalOrientation.value);
       finalMarker.position.copy(pos);
       finalMarker.rotation.z = MathUtils.degToRad(finalOrientation.value);
@@ -141,6 +147,82 @@ function withinPi(x: number): number {
   if (x < -Math.PI) return x + Math.PI;
   return x;
 }
+
+function rotateThenTranslate(
+  initialPoint: any,
+  finalPoint: any,
+  line1: any,
+  line2: any,
+  bisector: any,
+  rotateAmount: number
+) {
+  const iPerp = line1.Dot(initialPoint); // Perpendicular from initial point
+  const pivotOfRotation = bisector.Wedge(iPerp); // intersect the perpendicular with the angle bisector
+  const fPerp = line2.Dot(pivotOfRotation); // perpendicular to final point
+  const fPrior = fPerp.Wedge(line2); // intermediate point prior to the final point
+  transitionSphere.position.set(
+    -fPrior.e02 / fPrior.e12,
+    fPrior.e01 / fPrior.e12,
+    0
+  );
+  const transitionDistance = fPrior.Normalized.Vee(
+    finalPoint.Normalized
+  ).Length;
+  transitionPipe.position.set(
+    -fPrior.e02 / fPrior.e12,
+    fPrior.e01 / fPrior.e12,
+    0
+  );
+  transitionPipe.rotation.z = MathUtils.degToRad(finalOrientation.value - 90);
+  transitionPipe.translateY(transitionDistance / 2);
+  transitionPipe.scale.y = transitionDistance;
+  debugText.value += ` Start is ahead, rotate by ${rotateAmount.toFixed(
+    1
+  )} then translate by ${transitionDistance.toFixed(2)}`;
+  rotationPivotSphere.position.set(
+    -pivotOfRotation.e02 / pivotOfRotation.e12,
+    pivotOfRotation.e01 / pivotOfRotation.e12,
+    0
+  );
+}
+
+function translateThenRotate(
+  initialPoint: any,
+  finalPoint: any,
+  line1: any,
+  line2: any,
+  bisector: any,
+  rotateAmount: number
+) {
+  const fPerp = line2.Dot(finalPoint); // Perpendicular from the final point
+  const pivotOfRotation = bisector.Wedge(fPerp); // intersect the perpendicular with the angle bisector
+  const iPerp = line1.Dot(pivotOfRotation); // Perpendicular to the initial point
+  const iPost = iPerp.Wedge(line1); // intermediate point after the start point
+  transitionSphere.position.set(
+    -iPost.e02 / iPost.e12,
+    iPost.e01 / iPost.e12,
+    0
+  );
+  const transitionDistance =
+    initialPoint.Normalized.Vee(iPost.Normalized).Length - MARKER_LENGTH;
+  transitionPipe.position.set(-iPost.e02 / iPost.e12, iPost.e01 / iPost.e12, 0);
+  transitionPipe.rotation.z = MathUtils.degToRad(initialOrientation.value + 90);
+  transitionPipe.translateY(transitionDistance / 2);
+  transitionPipe.scale.y = transitionDistance;
+  debugText.value += ` Start is behind, translate by ${transitionDistance.toFixed(
+    2
+  )} then rotate by ${rotateAmount.toFixed(1)}`;
+  rotationPivotSphere.position.set(
+    -pivotOfRotation.e02 / pivotOfRotation.e12,
+    pivotOfRotation.e01 / pivotOfRotation.e12,
+    0
+  );
+}
+/*
+ * D1, D2 positive (start, intersect, end)
+ * d1 < d2    angle < 180
+ * d1 < d2    angle > 180
+ */
 function findBikePath() {
   const initialPoint = makePoint(
     initialMarker.position.x,
@@ -160,6 +242,7 @@ function findBikePath() {
   const line1 = initialPoint.Vee(initialDirection);
   const line2 = finalPoint.Vee(finalDirection);
   const intersection = line1.Wedge(line2);
+
   pathDistance.value = initialPoint.Vee(finalPoint).Length;
   if (Math.abs(intersection.e12) > 1e-5) {
     intersectionSphere.position.set(
@@ -174,30 +257,41 @@ function findBikePath() {
     // const s2 = makeSphere(5, "cyan");
     // s2.position.set(-finalPoint.e02, finalPoint.e01, 0);
     // visualScene.value?.add(s2);
-    debugText.value =
-      ` I2X dist: ${i2xDistance.toFixed(2)}  X2F dist ${x2fDistance.toFixed(
-        2
-      )}`;
+    debugText.value = ` I2X dist: ${i2xDistance.toFixed(
+      2
+    )}  X2F dist ${x2fDistance.toFixed(2)}`;
     if (i2xDistance * x2fDistance > 0) {
-      const bisector = line1.Normalized.Sub(line2.Normalized)
+      let rotateAmount =
+        i2xDistance < 0
+          ? finalOrientation.value - initialOrientation.value
+          : 360 - finalOrientation.value + initialOrientation.value;
+      while (rotateAmount > 360) rotateAmount -= 360;
+      while (rotateAmount < 0) rotateAmount += 360;
+      const bisector = line1.Normalized.Sub(line2.Normalized);
       debugText.value += " ONE TURN only";
-      let pivotOfRotation
-      if (Math.abs(i2xDistance) < Math.abs(x2fDistance)) {
-        const iPerp = line1.Dot(initialPoint)
-        pivotOfRotation = bisector.Wedge(iPerp)
-        const fPerp = line2.Dot(pivotOfRotation)
-        const fPrior = fPerp.Wedge(line2)
-        transitionSphere.position.set(-fPrior.e02/fPrior.e12, fPrior.e01/fPrior.e12, 0)
-        debugText.value += ' Start is ahead, rotate then translate'
+
+      if (
+        (rotateAmount < 180 && Math.abs(i2xDistance) < Math.abs(x2fDistance)) ||
+        (rotateAmount > 180 && Math.abs(i2xDistance) > Math.abs(x2fDistance))
+      ) {
+        rotateThenTranslate(
+          initialPoint,
+          finalPoint,
+          line1,
+          line2,
+          bisector,
+          rotateAmount
+        );
       } else {
-        const fPerp = line2.Dot(finalPoint)
-        pivotOfRotation = bisector.Wedge(fPerp)
-        const iPerp = line1.Dot(pivotOfRotation)
-        const iPost = iPerp.Wedge(line1)
-        transitionSphere.position.set(-iPost.e02/iPost.e12, iPost.e01/iPost.e12, 0)
-        debugText.value += ' Start is behind, translate then rotate'
+        translateThenRotate(
+          initialPoint,
+          finalPoint,
+          line1,
+          line2,
+          bisector,
+          rotateAmount
+        );
       }
-      rotationPivotSphere.position.set(-pivotOfRotation.e02/pivotOfRotation.e12, pivotOfRotation.e01/pivotOfRotation.e12, 0)
     } else debugText.value += " TWO TURNS required";
   } else {
     debugText.value = "Parallel lines";

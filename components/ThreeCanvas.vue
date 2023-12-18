@@ -75,7 +75,7 @@ let {
 } = storeToRefs(PGAStore);
 const visualStore = useVisualStore();
 const { makePipe, makeSphere, makeTire, makeArrow } = visualStore;
-const { visualScene, visualCamera, mousePositionOnGround, mouseWheelDirection } = storeToRefs(visualStore);
+const { visualScene, visualCamera, mousePositionOnGround, mouseWheelScrollAmount } = storeToRefs(visualStore);
 let driveWheelAngle = 0;
 let driveWheelAngularVelocity = 0;
 // let driveWheelAngularIncrement = 0;
@@ -100,7 +100,6 @@ const scene = new Scene();
 visualScene.value = scene;
 scene.add(new AxesHelper(120));
 scene.add(new AmbientLight());
-scene.add(makeArrow(70, 3, "yellow"))
 const light = new PointLight(0xffffff, 10000);
 // light.target.position.set(0,0,30)
 light.position.set(0, 40, 80);
@@ -322,11 +321,11 @@ let wheelTimer:any = null
 function trackWheel(ev: WheelEvent) {
   if (!ev.shiftKey) return
   // console.debug("Mouse scroll", ev.deltaY, "mode", ev.deltaMode)
-  mouseWheelDirection.value = ev.deltaY
+  mouseWheelScrollAmount.value = ev.deltaY
   clearTimeout(wheelTimer)
   wheelTimer = setTimeout(() => {
     wheelTimer = null
-    mouseWheelDirection.value = 0
+    mouseWheelScrollAmount.value = 0
   }, 100)
 
 }
