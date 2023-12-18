@@ -1,7 +1,8 @@
-\documentclass[border=4mm]{standalone}
+\documentclass{article}
 \usepackage{tikz}
 \usepackage{tkz-euclide}
 \usetikzlibrary{calc,intersections}
+\usepackage{graphicx}
 \newcommand{\Wheel}[3]{
   \begin{scope}[shift={#1},rotate=#2]
     \draw[rounded corners=9,#3] (-1,-5) rectangle (1,5);
@@ -9,6 +10,7 @@
 }
 
 \begin{document}
+
 \bigskip
 \begin{tikzpicture}[x=3mm,y=3mm]
   \draw (0,0) -- (10,0);
@@ -26,34 +28,63 @@
 \end{tikzpicture}
 
 
-Geometry of turn
-\begin{tikzpicture}
-  \coordinate (S) at (0,0);
-  \path (S) +(80:1) coordinate (T);
-  \coordinate (U) at (4,3);
-  \path (U) + (-60:1) coordinate (V);
-  \draw[fill] (S) circle [radius=2pt]; 
-  \node at (S) [left]{S};
-  \draw[fill] (U) circle [radius=2pt];
-  \node at (U) [right]{U};
-  % \node at (S1)[left] {Start};
-  \draw[name path=S--T,->] (S) -- (T);
-  % \draw[->,thick] (S1) -- (S2);
-  \draw[name path=U--V,->] (U) -- (V);
-  % Intersection point
-  % \coordinate (X) at (intersection of L1 and L2);
-  \coordinate (X) at (intersection of S--T and U--V);
-  \draw[red,fill] (X) circle [radius=2pt];
-  \draw[dashed] (T) -- (X) -- (U);
-  \tkzInCenter(S,X,V)
-  \tkzGetPoint{R}
-  \path[name path global=bisector] (X) -- (R);
-  \draw[name path global=vperp] ($(U)!2cm!270:(V)$) -- ($(U)!0.2cm!90:(V)$);
-  % \path[orange,name intersections={of=vperp and bisector,by=P}];
-  % \tkzDefLine[orthogonal=through U](X,V)
-  % \tkzDrawLine(U,tkzPointResult)
-  % \tkzDrawPoint(R);
-  \coordinate (P) at (intersection of bisector and U--V);
-  
-\end{tikzpicture}
+\section*{Geometric Path Planning}
+
+Using Mozzi-Chasles' theorem, any rigid body displacement can be produced by a combination of
+translation along a line and a rotation about an axis parallel to that line.
+
+Given the initial location and heading at both the starting point and target points,
+we want to compute the path comprised by translation and rotation as described by 
+the above theorem.
+We will analyze two different cases depending on the relative orientation between the heading
+at the starting point and the heading at the target point.
+
+\begin{itemize}
+  \item When the relative orientation is larger than 90 degrees, the path requires
+  only a single turn
+  \item When the relative orientation is smaller than 90 degrees, the path can be solved
+  using a single turn. However, there is a shorter path that includes two turns
+\end{itemize}
+\subsection*{A Single Turn}
+\begin{figure}[hbt]  
+  \begin{tabular}{cc}
+    \includegraphics[width=3in]{screenshots/single-acute-turn-rot-trans.png} &
+    \includegraphics[width=3in]{screenshots/single-acute-turn-trans-rot.png}\\
+    (a) & (b)\\
+  \end{tabular} 
+  \caption{Path planning with a single acute turn}
+  \label{fig:path1turnacute}
+\end{figure}
+
+
+\begin{figure}[hbt]  
+  \begin{tabular}{cc}
+    \includegraphics[width=3in]{screenshots/single-obtuse-turn-rot-trans.png} &
+    \includegraphics[width=3in]{screenshots/single-obtuse-turn-trans-rot.png}\\
+    (a) & (b)\\
+  \end{tabular} 
+  \caption{Path planning with a single obtuse turn}
+  \label{fig:path1turnobtuse}
+\end{figure}
+
+In Figure~\ref{fig:path1turnacute}, the bike starts at point $A$ with its heading shown by
+the green arrow and its target is point $C$ with its heading shown by the red arrow.
+The extending headings are shows by the dotted lines intersected at $E$.
+Line $EF$ is the angle bisector of the both heading lines, and point $F$ is the
+pivot of rotation.
+
+There are two cases to consider:
+\begin{itemize}
+  \item In Figure~\ref{fig:path1turnacute}a, when $|AE| < |CE|$, the bike first rotates from $A$ and $G$ around the 
+  pivot $F$  before it continues to translate from $G$ to $C$. In this case the pivot of rotation $F$ is determined
+  by the starting point $A$
+  \item In Figure~\ref{fig:path1turnacute}b, when $|AE| > |CE|$, the bike first translates from $A$ to $G$ before it 
+  continues to rotate from $G$ to $C$ around the pivot $F$. In this case the pivot of rotation $F$ is determined
+  by the target point $C$.
+\end{itemize}
+Notice that when the turn angle is acute, the pivot of rotation is determined by the \textbf{closer} 
+of the starting/target point to the intersection $E$.
+However, when the turn angle is obtuse, the pivot or rotation is determined by the \textbf{further}
+point (as shown in Figure~\ref{fig:path1turnobtuse}).
+
 \end{document}

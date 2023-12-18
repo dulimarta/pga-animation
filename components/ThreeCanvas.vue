@@ -103,7 +103,7 @@ const rayCaster = new Raycaster();
 const mousePointerPosition = new Vector2();
 const scene = new Scene();
 visualScene.value = scene;
-scene.add(new AxesHelper(120));
+// scene.add(new AxesHelper(120));
 scene.add(new AmbientLight());
 const light = new PointLight(0xffffff, 10000);
 // light.target.position.set(0,0,30)
@@ -167,7 +167,6 @@ parsePGALine("Steering axis", steeringAxis());
 //   frontWheelPlane.toString()
 // );
 const rotAxisObj = makePipe(WHEEL_RADIUS + TIRE_TUBE_RADIUS, 0.5, "green");
-// rotAxisObj.add(new AxesHelper(10))
 rotAxisObj.rotateX(MathUtils.degToRad(90));
 // scene.add(rotAxisObj)
 // render(scene, rearHub)

@@ -65,6 +65,7 @@ const rotationPivotSphere = makeSphere(5, "yellow");
 const transitionSphere = makeSphere(8, "white");
 const transitionPipe = makePipe(1, 4, "white");
 const turnArc = makeArc(1, 4, 90, "white");
+let helperPathsShown = false
 // let activeMarker = initialMarker;
 onMounted(() => {
   visualScene.value?.add(intersectionSphere);
@@ -72,6 +73,7 @@ onMounted(() => {
   visualScene.value?.add(transitionSphere);
   visualScene.value?.add(transitionPipe);
   visualScene.value?.add(turnArc)
+  helperPathsShown = true
 });
 
 watch(
@@ -143,12 +145,6 @@ function parseLine(text: string, L: any): string {
 }
 function parsePoint(text: string, P: any): string {
   return `${text}: (${-P.e02.toFixed(2)},${P.e01.toFixed(2)})`;
-}
-
-function withinPi(x: number): number {
-  if (x > Math.PI) return x - Math.PI;
-  if (x < -Math.PI) return x + Math.PI;
-  return x;
 }
 
 function rotateThenTranslate(
@@ -261,6 +257,14 @@ function findBikePath() {
       2
     )}  X2F dist ${x2fDistance.toFixed(2)}`;
     if (i2xDistance * x2fDistance > 0) {
+      if (!helperPathsShown) {
+        visualScene.value?.add(turnArc)
+        visualScene.value?.add(transitionPipe)
+        visualScene.value?.add(rotationPivotSphere)
+        visualScene.value?.add(transitionSphere)
+        helperPathsShown = true
+      }
+
       let rotateAmount =
         i2xDistance < 0
           ? finalOrientation.value - initialOrientation.value
@@ -310,7 +314,14 @@ function findBikePath() {
         // lineup the arc with the initial point
         turnArc.rotation.z = MathUtils.degToRad(initialOrientation.value - 90)
       }
-    } else debugText.value += " TWO TURNS required";
+    } else {
+      debugText.value += " TWO TURNS required";
+      visualScene.value?.remove(turnArc)
+      visualScene.value?.remove(transitionPipe)
+      visualScene.value?.remove(rotationPivotSphere)
+      visualScene.value?.remove(transitionSphere)
+      helperPathsShown = false
+    }
   } else {
     debugText.value = "Parallel lines";
   }
