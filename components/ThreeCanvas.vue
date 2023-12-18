@@ -29,9 +29,9 @@ import {
   MeshBasicMaterial,
   DoubleSide,
   Raycaster,
-Object3D,
-Intersection,
-AxesHelper,
+  Object3D,
+  Intersection,
+  AxesHelper,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { useVisualStore } from "~/store/visual-store";
@@ -75,7 +75,12 @@ let {
 } = storeToRefs(PGAStore);
 const visualStore = useVisualStore();
 const { makePipe, makeSphere, makeTire, makeArrow } = visualStore;
-const { visualScene, visualCamera, mousePositionOnGround, mouseWheelScrollAmount } = storeToRefs(visualStore);
+const {
+  visualScene,
+  visualCamera,
+  mousePositionOnGround,
+  mouseWheelScrollAmount,
+} = storeToRefs(visualStore);
 let driveWheelAngle = 0;
 let driveWheelAngularVelocity = 0;
 // let driveWheelAngularIncrement = 0;
@@ -218,15 +223,15 @@ watch(
       camera.lookAt(0, -200, 0);
       bike.remove(camera);
       scene.add(camera);
-      glcanvas.value?.addEventListener("mousemove",trackMouseIn3D);
-      glcanvas.value?.addEventListener("wheel",trackWheel);
+      glcanvas.value?.addEventListener("mousemove", trackMouseIn3D);
+      glcanvas.value?.addEventListener("wheel", trackWheel);
     } else {
       if (showGeometry.value) addVisualAccessories();
       camera.position.set(WHEEL_RADIUS, -100, 50);
       camera.lookAt(WHEEL_BASE / 2, 0, 5);
       scene.remove(camera);
-      glcanvas.value?.removeEventListener("mousemove",trackMouseIn3D);
-      glcanvas.value?.removeEventListener("wheel",trackWheel);
+      glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
+      glcanvas.value?.removeEventListener("wheel", trackWheel);
     }
 
     // if (currentMode == 'plan') {
@@ -290,7 +295,7 @@ onMounted(async () => {
     antialias: true,
   });
   renderer.shadowMap.enabled = true;
-  renderer.setPixelRatio(window.devicePixelRatio)
+  renderer.setPixelRatio(window.devicePixelRatio);
   // renderer.shadowMap.type = BasicShadowMap
   // renderer.setSize(
   //   glcanvas.value?.clientWidth ?? 400,
@@ -307,30 +312,31 @@ onMounted(async () => {
 });
 
 function trackMouseIn3D(ev: MouseEvent) {
-  if (!ev.shiftKey) return
+  if (!ev.shiftKey) return;
   mousePointerPosition.x = 2 * (ev.clientX / glcanvas.value!.clientWidth) - 1;
   mousePointerPosition.y = 1 - 2 * (ev.clientY / glcanvas.value!.clientHeight);
   // console.debug("Mouse on canvas", mousePointerPosition.x.toFixed(3), mousePointerPosition.y.toFixed(3))
   rayCaster.setFromCamera(mousePointerPosition, camera);
   const what = rayCaster.intersectObject(ground);
   if (what.length > 0) {
-    mousePositionOnGround.value.copy(what[0].point)
+    mousePositionOnGround.value.copy(what[0].point);
   }
 }
-let wheelTimer:any = null
+let wheelTimer: any = null;
 function trackWheel(ev: WheelEvent) {
-  if (!ev.shiftKey) return
+  if (!ev.shiftKey) return;
   // console.debug("Mouse scroll", ev.deltaY, "mode", ev.deltaMode)
-  mouseWheelScrollAmount.value = ev.deltaY
-  clearTimeout(wheelTimer)
+  mouseWheelScrollAmount.value = ev.deltaY;
+  clearTimeout(wheelTimer);
   wheelTimer = setTimeout(() => {
-    wheelTimer = null
-    mouseWheelScrollAmount.value = 0
-  }, 100)
-
+    wheelTimer = null;
+    mouseWheelScrollAmount.value = 0;
+  }, 100);
 }
 onBeforeUnmount(() => {
   if (animationFrameHandle != null) cancelAnimationFrame(animationFrameHandle);
+  glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
+  glcanvas.value?.removeEventListener("wheel", trackWheel);
 });
 
 function makeAuxPlane(pgaPlane: any, color?: number): [Plane, PlaneHelper] {

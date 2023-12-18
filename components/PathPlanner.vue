@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
-import { MathUtils, Vector3 } from "three";
+import { MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
 import { useVisualStore } from "~/store/visual-store";
 const { makePoint, makeDirection } = usePGA2D();
 const CANVAS_SIZE = 320;
@@ -41,7 +41,7 @@ const MARKER_LENGTH = 50;
 const store = usePGAStore();
 const visualStore = useVisualStore();
 const { /*bodyPosition, bodyRotation, */ runMode } = storeToRefs(store);
-const { makeArrow, makeSphere, makePipe } = visualStore;
+const { makeArrow, makeSphere, makePipe, makeArc } = visualStore;
 const {
   visualScene,
   visualCamera,
@@ -64,12 +64,14 @@ const intersectionSphere = makeSphere(5, "blue");
 const rotationPivotSphere = makeSphere(5, "yellow");
 const transitionSphere = makeSphere(8, "white");
 const transitionPipe = makePipe(1, 4, "white");
+const turnArc = makeArc(1, 4, 90, "white");
 // let activeMarker = initialMarker;
 onMounted(() => {
   visualScene.value?.add(intersectionSphere);
   visualScene.value?.add(rotationPivotSphere);
   visualScene.value?.add(transitionSphere);
   visualScene.value?.add(transitionPipe);
+  visualScene.value?.add(turnArc)
 });
 
 watch(
@@ -94,6 +96,7 @@ function within360(x: number) {
   if (x < 0) return x + 360;
   return x;
 }
+
 let lastMouseWheelScrollAmount = 0;
 watch(
   [() => mousePositionOnGround.value, () => mouseWheelScrollAmount.value],
@@ -155,11 +158,13 @@ function rotateThenTranslate(
   line2: any,
   bisector: any,
   rotateAmount: number
-) {
+): [any,number] {
   const iPerp = line1.Dot(initialPoint); // Perpendicular from initial point
-  const pivotOfRotation = bisector.Wedge(iPerp); // intersect the perpendicular with the angle bisector
-  const fPerp = line2.Dot(pivotOfRotation); // perpendicular to final point
+  const pivotOfRot = bisector.Wedge(iPerp).Normalized; // intersect the perpendicular with the angle bisector
+  const fPerp = line2.Dot(pivotOfRot); // perpendicular to final point
   const fPrior = fPerp.Wedge(line2); // intermediate point prior to the final point
+  const turnRad = pivotOfRot.Vee(initialPoint).Length
+
   transitionSphere.position.set(
     -fPrior.e02 / fPrior.e12,
     fPrior.e01 / fPrior.e12,
@@ -179,11 +184,7 @@ function rotateThenTranslate(
   debugText.value += ` Start is ahead, rotate by ${rotateAmount.toFixed(
     1
   )} then translate by ${transitionDistance.toFixed(2)}`;
-  rotationPivotSphere.position.set(
-    -pivotOfRotation.e02 / pivotOfRotation.e12,
-    pivotOfRotation.e01 / pivotOfRotation.e12,
-    0
-  );
+  return [pivotOfRot, turnRad]
 }
 
 function translateThenRotate(
@@ -193,11 +194,12 @@ function translateThenRotate(
   line2: any,
   bisector: any,
   rotateAmount: number
-) {
+): [any,number] {
   const fPerp = line2.Dot(finalPoint); // Perpendicular from the final point
-  const pivotOfRotation = bisector.Wedge(fPerp); // intersect the perpendicular with the angle bisector
-  const iPerp = line1.Dot(pivotOfRotation); // Perpendicular to the initial point
+  const pivot = bisector.Wedge(fPerp).Normalized; // intersect the perpendicular with the angle bisector
+  const iPerp = line1.Dot(pivot); // Perpendicular to the initial point
   const iPost = iPerp.Wedge(line1); // intermediate point after the start point
+  const turnRad = pivot.Vee(finalPoint).Length
   transitionSphere.position.set(
     -iPost.e02 / iPost.e12,
     iPost.e01 / iPost.e12,
@@ -212,17 +214,15 @@ function translateThenRotate(
   debugText.value += ` Start is behind, translate by ${transitionDistance.toFixed(
     2
   )} then rotate by ${rotateAmount.toFixed(1)}`;
-  rotationPivotSphere.position.set(
-    -pivotOfRotation.e02 / pivotOfRotation.e12,
-    pivotOfRotation.e01 / pivotOfRotation.e12,
-    0
-  );
+  return [pivot,turnRad];
 }
-/*
- * D1, D2 positive (start, intersect, end)
- * d1 < d2    angle < 180
- * d1 < d2    angle > 180
- */
+
+function modifyTurningArc(radius: number, arcLengthDegree: number) {
+  turnArc.geometry.dispose();
+  const geo = new TorusGeometry(radius, 4, 10, Math.ceil(arcLengthDegree / 5), arcLengthDegree * Math.PI / 180)
+  turnArc.geometry = geo
+}
+
 function findBikePath() {
   const initialPoint = makePoint(
     initialMarker.position.x,
@@ -269,12 +269,12 @@ function findBikePath() {
       while (rotateAmount < 0) rotateAmount += 360;
       const bisector = line1.Normalized.Sub(line2.Normalized);
       debugText.value += " ONE TURN only";
-
+      let pivotOfRotation, radiusOfRotation;
       if (
         (rotateAmount < 180 && Math.abs(i2xDistance) < Math.abs(x2fDistance)) ||
         (rotateAmount > 180 && Math.abs(i2xDistance) > Math.abs(x2fDistance))
       ) {
-        rotateThenTranslate(
+        [pivotOfRotation, radiusOfRotation] = rotateThenTranslate(
           initialPoint,
           finalPoint,
           line1,
@@ -283,7 +283,7 @@ function findBikePath() {
           rotateAmount
         );
       } else {
-        translateThenRotate(
+        [pivotOfRotation, radiusOfRotation] = translateThenRotate(
           initialPoint,
           finalPoint,
           line1,
@@ -291,6 +291,24 @@ function findBikePath() {
           bisector,
           rotateAmount
         );
+      }
+      rotationPivotSphere.position.set(
+        -pivotOfRotation.e02 / pivotOfRotation.e12,
+        pivotOfRotation.e01 / pivotOfRotation.e12,
+        0
+      );
+      turnArc.position.copy(rotationPivotSphere.position)
+      // const turnRadius = pivotOfRotation.Vee(initialPoint).Length
+      // debugText.value += `, turn radius ${radiusOfRotation.toFixed(2)}`
+      modifyTurningArc(radiusOfRotation, rotateAmount)
+      // if (rotateAmount < 180)
+      if (i2xDistance > 0) {
+        // lineup the arc with the final point
+        turnArc.rotation.z = MathUtils.degToRad(90 + finalOrientation.value)
+      }
+      else {
+        // lineup the arc with the initial point
+        turnArc.rotation.z = MathUtils.degToRad(initialOrientation.value - 90)
       }
     } else debugText.value += " TWO TURNS required";
   } else {

@@ -83,6 +83,12 @@ export const useVisualStore = defineStore("visual", () => {
     g.add(arrowHead);
     return g;
   }
+  function makeArc(radius: number, thickness: number, sweepAngleDegree: number, color?: string) {
+    return new Mesh(
+      new TorusGeometry(radius, thickness, Math.ceil(sweepAngleDegree / 10), 6, sweepAngleDegree * Math.PI / 180),
+      new MeshPhongMaterial({color: color ?? "white"})
+    )
+  }
   // const initialMarker: Ref<Group> = ref(makeArrow())
   const visualScene: Ref<Scene | null> = ref(null);
   const visualCamera: Ref<Camera | null> = ref(null);
@@ -92,8 +98,9 @@ export const useVisualStore = defineStore("visual", () => {
     makePipe,
     makeSphere,
     makeTire,
-    visualScene,
+    makeArc,
     makeArrow,
+    visualScene,
     visualCamera,
     mousePositionOnGround,
     mouseWheelScrollAmount,
