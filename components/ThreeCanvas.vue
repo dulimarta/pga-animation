@@ -324,7 +324,6 @@ function trackMouseIn3D(ev: MouseEvent) {
 let wheelTimer: any = null;
 function trackWheel(ev: WheelEvent) {
   if (!ev.shiftKey) return;
-  // console.debug("Mouse scroll", ev.deltaY, "mode", ev.deltaMode)
   mouseWheelScrollAmount.value = ev.deltaY;
   clearTimeout(wheelTimer);
   wheelTimer = setTimeout(() => {

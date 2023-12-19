@@ -20,19 +20,15 @@
     </div>
     <v-textarea label="Debugging output" v-model="debugText"></v-textarea>
     <ul>
-      <li>Path distance {{ pathDistance.toFixed(2) }}</li>
       <li>Line 1 orientation: {{ initialOrientation.toFixed(3) }}</li>
       <li>Line 2 orientation: {{ finalOrientation.toFixed(3) }}</li>
-      <li>
-        Angle between {{ (finalOrientation - initialOrientation).toFixed(3) }}
-      </li>
     </ul>
   </div>
 </template>
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
-import { MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
+import { FileLoader, MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
 import { useVisualStore } from "~/store/visual-store";
 const { makePoint, makeDirection } = usePGA2D();
 const CANVAS_SIZE = 320;
@@ -66,8 +62,8 @@ const rotationPivot2Sphere = makeSphere(5, "yellow");
 const transitionSphere = makeSphere(8, "green");
 const transitionSphere2 = makeSphere(8, "white");
 const transitionPipe = makePipe(1, 4, "white");
-const turnArc = makeArc(1, 4, 90, "white");
-const turnArc2 = makeArc(1, 4, 90, "blue");
+const arcFromInitial = makeArc(1, 4, 90, "white");
+const arcToFinal = makeArc(1, 4, 90, "white");
 let helperPathsShown = false;
 // let activeMarker = initialMarker;
 onMounted(() => {
@@ -75,7 +71,7 @@ onMounted(() => {
   visualScene.value?.add(rotationPivotSphere);
   visualScene.value?.add(transitionSphere);
   visualScene.value?.add(transitionPipe);
-  visualScene.value?.add(turnArc);
+  visualScene.value?.add(arcFromInitial);
   helperPathsShown = true;
 });
 
@@ -107,7 +103,8 @@ watch(
   [() => mousePositionOnGround.value, () => mouseWheelScrollAmount.value],
   ([pos, wheel]: [Vector3, number]) => {
     checkMarkersVisibility();
-    const wheelScrollAmount = 0.8 * lastMouseWheelScrollAmount + 0.2 * wheel;
+    const wheelScrollAmount =
+      0.9 * lastMouseWheelScrollAmount + (0.1 * wheel) / 5;
     lastMouseWheelScrollAmount = wheel;
     if (activePose.value === "initial") {
       initialOrientation.value += wheelScrollAmount;
@@ -256,7 +253,7 @@ function findBikePath() {
     const initialToIntersection = initialPoint.Vee(intersection);
     const intersectionToFinal = intersection.Vee(finalPoint);
     const i2xDistance = initialToIntersection.Dot(initialDirection).e0;
-    const x2fDistance = intersectionToFinal.Dot(finalDirection).e0;
+    let x2fDistance = intersectionToFinal.Dot(finalDirection).e0;
     // const s2 = makeSphere(5, "cyan");
     // s2.position.set(-finalPoint.e02, finalPoint.e01, 0);
     // visualScene.value?.add(s2);
@@ -267,7 +264,7 @@ function findBikePath() {
       // Single Turn
       visualScene.value?.remove(rotationPivot2Sphere);
       visualScene.value?.remove(transitionSphere2);
-      visualScene.value?.remove(turnArc2);
+      visualScene.value?.remove(arcToFinal);
       if (!helperPathsShown) {
         helperPathsShown = true;
       }
@@ -306,41 +303,52 @@ function findBikePath() {
         pivotOfRotation.e01 / pivotOfRotation.e12,
         0
       );
-      turnArc.position.copy(rotationPivotSphere.position);
+      arcFromInitial.position.copy(rotationPivotSphere.position);
       // const turnRadius = pivotOfRotation.Vee(initialPoint).Length
       // debugText.value += `, turn radius ${radiusOfRotation.toFixed(2)}`
-      modifyTurningArc(turnArc, radiusOfRotation, rotateAmount);
+      modifyTurningArc(arcFromInitial, radiusOfRotation, rotateAmount);
       // if (rotateAmount < 180)
       if (i2xDistance > 0) {
         // lineup the arc with the final point
-        turnArc.rotation.z = MathUtils.degToRad(90 + finalOrientation.value);
+        arcFromInitial.rotation.z = MathUtils.degToRad(
+          90 + finalOrientation.value
+        );
       } else {
         // lineup the arc with the initial point
-        turnArc.rotation.z = MathUtils.degToRad(initialOrientation.value - 90);
+        arcFromInitial.rotation.z = MathUtils.degToRad(
+          initialOrientation.value - 90
+        );
       }
     } else {
       // Double Turns
-      let rotateAmount = finalOrientation.value - initialOrientation.value;
-      while (rotateAmount > 360) rotateAmount -= 360;
-      while (rotateAmount < 0) rotateAmount += 360;
-      const bisectorOrientation =
-        (initialOrientation.value + finalOrientation.value) / 2;
-      debugText.value = `TWO TURNS required i2x ${i2xDistance.toFixed(
-        2
-      )} x2f ${x2fDistance.toFixed(2)}`;
+      let headingDiff = finalOrientation.value - initialOrientation.value;
+      let finalOrient = finalOrientation.value
+      while (finalOrient > 180) finalOrient -= 360
+      while (finalOrient < -180) finalOrient += 360
+      let initOrient = initialOrientation.value
+      while (initOrient > 180) initOrient -= 360
+      while (initOrient < -180) initOrient += 360
+      while (headingDiff > 180) headingDiff -= 360;
+      while (headingDiff < -180) headingDiff += 360;
+      const isDiverging = x2fDistance * headingDiff < 0;
+      const bisectorOrientation = (initOrient + finalOrient) / 2;
+      debugText.value += ` TWO TURNS, heading diff ${headingDiff.toFixed(2)}, bisector orientation ${bisectorOrientation.toFixed(2)}`
       helperPathsShown = false;
       visualScene.value?.add(rotationPivot2Sphere);
       visualScene.value?.add(transitionSphere2);
-      visualScene.value?.add(turnArc2);
+      visualScene.value?.add(arcToFinal);
       const bisectorCtr = line1.Normalized.Add(line2.Normalized); // main bisector
       const bisectorLeft = line1.Normalized.Add(bisectorCtr.Normalized);
       const bisectorRight = bisectorCtr.Normalized.Add(line2.Normalized);
-      // The right rotation pivot is always determined by the final point
+      // The right rotation pivot and the incoming tangent are always determined by the final point
+      // So we can compute them immediately
       const rightPivot = line2.Dot(finalPoint).Wedge(bisectorRight);
-      const ctr2 = bisectorCtr.Dot(rightPivot).Wedge(bisectorCtr);
+      const incomingTangentRight = bisectorCtr
+        .Dot(rightPivot)
+        .Wedge(bisectorCtr);
       transitionSphere2.position.set(
-        -ctr2.e02 / ctr2.e12,
-        ctr2.e01 / ctr2.e12,
+        -incomingTangentRight.e02 / incomingTangentRight.e12,
+        incomingTangentRight.e01 / incomingTangentRight.e12,
         0
       );
       rotationPivot2Sphere.position.set(
@@ -348,72 +356,99 @@ function findBikePath() {
         rightPivot.e01 / rightPivot.e12,
         0
       );
-      turnArc2.position.set(
+      arcToFinal.position.set(
         -rightPivot.e02 / rightPivot.e12,
         rightPivot.e01 / rightPivot.e12,
         0
       );
-      let leftPivot, leftRotationRadius, leftTurnArcLength;
-      if (Math.abs(i2xDistance) < Math.abs(x2fDistance)) {
-        // start is closer to intersection, rotate then translate
-        [leftPivot, leftRotationRadius] = rotateThenTranslate(
+      let outgoingRotationPivot,
+        outgoingRotationRadius,
+        outgoingRotationArcLength;
+      if (
+        (!isDiverging && Math.abs(i2xDistance) < Math.abs(x2fDistance)) ||
+        (isDiverging && Math.abs(i2xDistance) > Math.abs(x2fDistance))
+      ) {
+        // relative to the intersection point, initial point is ahead of final point
+        [outgoingRotationPivot, outgoingRotationRadius] = rotateThenTranslate(
           initialPoint,
-          ctr2,
+          incomingTangentRight,
           line1,
           bisectorCtr,
           bisectorLeft
         );
-        const ctr1 = bisectorCtr.Dot(leftPivot).Wedge(bisectorCtr);
+        const ctr1 = bisectorCtr.Dot(outgoingRotationPivot).Wedge(bisectorCtr);
         transitionSphere.position.set(
           -ctr1.e02 / ctr1.e12,
           ctr1.e01 / ctr1.e12,
           0
         );
-        const transitionLength = ctr2.Normalized.Vee(ctr1.Normalized).Length;
+        const transitionLength = incomingTangentRight.Normalized.Vee(
+          ctr1.Normalized
+        ).Length;
         transitionPipe.position.set(
           -ctr1.e02 / ctr1.e12,
           ctr1.e01 / ctr1.e12,
           0
         );
-        transitionPipe.rotation.z = MathUtils.degToRad(
-          (finalOrientation.value + initialOrientation.value) / 2 - 90
-        );
-        transitionPipe.translateY(-transitionLength / 2);
+        transitionPipe.rotation.z = MathUtils.degToRad(bisectorOrientation + 90);
+        transitionPipe.translateY(transitionLength / 2);
         transitionPipe.scale.y = transitionLength;
-        debugText.value += ` bisector orientation: ${bisectorOrientation.toFixed(
-          2
-        )}`;
       } else {
         // start is farther from intersection
-        [leftPivot, leftRotationRadius] = translateThenRotate(
+        [outgoingRotationPivot, outgoingRotationRadius] = translateThenRotate(
           initialPoint,
-          ctr2,
+          incomingTangentRight,
           line1,
           bisectorCtr,
           bisectorLeft
         );
-        debugText.value = `TWO turns, with left turn rad ${leftRotationRadius.toFixed(2)}`
       }
-      turnArc.position.set(
-          -leftPivot.e02 / leftPivot.e12,
-          leftPivot.e01 / leftPivot.e12,
-          0
-        );
-      turnArc.rotation.z = -MathUtils.degToRad(90 - bisectorOrientation);
-      leftTurnArcLength =
-          180 - bisectorOrientation + initialOrientation.value;
-
-      modifyTurningArc(turnArc, leftRotationRadius, leftTurnArcLength);
-      rotationPivotSphere.position.set(
-        -leftPivot.e02 / leftPivot.e12,
-        leftPivot.e01 / leftPivot.e12,
+      arcFromInitial.position.set(
+        -outgoingRotationPivot.e02 / outgoingRotationPivot.e12,
+        outgoingRotationPivot.e01 / outgoingRotationPivot.e12,
         0
       );
-      const rightRotationRadius = rightPivot.Normalized.Vee(finalPoint.Normalized).Length
-      const rightTurnArcLength =
-          180 + finalOrientation.value - bisectorOrientation;
-      modifyTurningArc(turnArc2, rightRotationRadius, rightTurnArcLength)
-      turnArc2.rotation.z = MathUtils.degToRad(90 + bisectorOrientation )
+      arcFromInitial.rotation.z =
+        i2xDistance < 0
+          ? -MathUtils.degToRad(90 - bisectorOrientation)
+          : MathUtils.degToRad(initialOrientation.value - 90);
+      outgoingRotationArcLength =
+        i2xDistance < 0
+          ? 180 - bisectorOrientation + initialOrientation.value
+          : 180 + bisectorOrientation - initialOrientation.value;
+
+      while (outgoingRotationArcLength < 0) outgoingRotationArcLength += 360;
+      while (outgoingRotationArcLength > 360) outgoingRotationArcLength -= 360;
+      modifyTurningArc(
+        arcFromInitial,
+        outgoingRotationRadius,
+        outgoingRotationArcLength
+      );
+      rotationPivotSphere.position.set(
+        -outgoingRotationPivot.e02 / outgoingRotationPivot.e12,
+        outgoingRotationPivot.e01 / outgoingRotationPivot.e12,
+        0
+      );
+      const incomingRotationRadius = rightPivot.Normalized.Vee(
+        finalPoint.Normalized
+      ).Length;
+      let incomingRotationArcLength =
+        x2fDistance > 0
+          ? finalOrientation.value - bisectorOrientation + 180
+          : bisectorOrientation - finalOrientation.value + 180;
+
+      while (incomingRotationArcLength < 0) incomingRotationArcLength += 360;
+      while (incomingRotationArcLength > 360) incomingRotationArcLength -= 360;
+      debugText.value += `incoming arc length ${incomingRotationArcLength.toFixed(2)}, outgoing arc length ${outgoingRotationArcLength.toFixed(2)}`
+      modifyTurningArc(
+        arcToFinal,
+        incomingRotationRadius,
+        incomingRotationArcLength
+      );
+      arcToFinal.rotation.z =
+        x2fDistance > 0
+          ? MathUtils.degToRad(90 + bisectorOrientation)
+          : MathUtils.degToRad(90 + finalOrientation.value);
     }
   } else {
     debugText.value = "Parallel lines";
