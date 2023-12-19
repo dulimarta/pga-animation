@@ -60,8 +60,8 @@
         //   line1.Normalized.Add(line2.Normalized)
         if (i2pDistance * p2fDistance > 0) {
           let perp1, perp2
-        let pivot
-        let T1, T2
+          let pivot
+          let T1, T2
           const bisector = line1.Normalized.Sub(line2.Normalized)
           // const bisector2 = line1.Normalized.Add(line2.Normalized)
 
@@ -106,13 +106,13 @@
           if (ptoc1 < ptoc2) {
             path = "Start &rarr; Rotate at R1 to C1 &rarr; Translate to C2 &rarr; Rotate at R2 to End"
             translateOnLine1 = false
-            recipe = [c1, `C1 ${ptoc1.toFixed(2)}`, [initialPoint,r1], [r1,c1], [c1,c2]]
+            recipe = [c1, `C1 ${ptoc1.toFixed(2)}`, [initialPoint, r1], [r1, c1], [c1, c2]]
           } else {
             path = "Translate to T1 &rarr; Rotate at R1 to C2 &rarr; Rotate at R2 to End"
             translateOnLine1 = true
             r1 = bisector2.Dot(c2).Wedge(bisector1)
             const t1 = line1.Dot(r1).Wedge(line1)
-            recipe = [t1, "T1", [t1,r1], [r1,c2]]
+            recipe = [t1, "T1", [t1, r1], [r1, c2]]
           }
           // midPerp = bisector2.Dot(pivot2)
           // const pivot1 = midPerp.Wedge(bisector1)
@@ -120,10 +120,10 @@
           // const T1 = line1.Dot(pivot1).Wedge(line1)
           // const T2 = line2.Dot(pivot3).Wedge(line2)
           return [`Path: ${path}`,
-            0x00aa00, initialPoint, "Start", iHead, line1, `${line1.toString()}`,
-            0xff0000, finalPoint, "End", fHead, line2, `${line2.toString()}`,
+            0x00aa00, initialPoint, "Start", iHead, line1,
+            0xff0000, finalPoint, "End", fHead, line2, 
             0x000000, p12,//`${(angle1 * 180 / Math.PI).toFixed(2)} degrees`,
-            r1, "R1", r2, "R2", ,  c2, `C2 ${ptoc2.toFixed(2)}`,...recipe,  [c2,r2], [r2,finalPoint],
+            r1, "R1", r2, "R2", , c2, `C2 ${ptoc2.toFixed(2)}`, ...recipe, [c2, r2], [r2, finalPoint],
             0x99bb99, bisector1, bisector2, bisector3,
 
             // pivot1, pivot3,
