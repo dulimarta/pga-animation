@@ -67,6 +67,7 @@ const transitionSphere = makeSphere(8, "green");
 const transitionSphere2 = makeSphere(8, "white");
 const transitionPipe = makePipe(1, 4, "white");
 const turnArc = makeArc(1, 4, 90, "white");
+const turnArc2 = makeArc(1, 4, 90, "blue");
 let helperPathsShown = false;
 // let activeMarker = initialMarker;
 onMounted(() => {
@@ -154,8 +155,7 @@ function rotateThenTranslate(
   finalPoint: any,
   line1: any,
   line2: any,
-  bisector: any,
-  rotateAmount: number
+  bisector: any
 ): [any, number] {
   const iPerp = line1.Dot(initialPoint); // Perpendicular from initial point
   const pivotOfRot = bisector.Wedge(iPerp).Normalized; // intersect the perpendicular with the angle bisector
@@ -179,9 +179,9 @@ function rotateThenTranslate(
   transitionPipe.rotation.z = MathUtils.degToRad(finalOrientation.value - 90);
   transitionPipe.translateY(transitionDistance / 2);
   transitionPipe.scale.y = transitionDistance;
-  debugText.value += ` Start is ahead, rotate by ${rotateAmount.toFixed(
-    1
-  )} then translate by ${transitionDistance.toFixed(2)}`;
+  // debugText.value += ` Start is ahead, rotate by ${rotateAmount.toFixed(
+  //   1
+  // )} then translate by ${transitionDistance.toFixed(2)}`;
   return [pivotOfRot, turnRad];
 }
 
@@ -190,14 +190,13 @@ function translateThenRotate(
   finalPoint: any,
   line1: any,
   line2: any,
-  bisector: any,
-  rotateAmount: number
+  bisector: any
 ): [any, number] {
   const fPerp = line2.Dot(finalPoint); // Perpendicular from the final point
   const pivot = bisector.Wedge(fPerp).Normalized; // intersect the perpendicular with the angle bisector
   const iPerp = line1.Dot(pivot); // Perpendicular to the initial point
   const iPost = iPerp.Wedge(line1); // intermediate point after the start point
-  const turnRad = pivot.Vee(finalPoint).Length;
+  const turnRad = pivot.Normalized.Vee(finalPoint.Normalized).Length;
   transitionSphere.position.set(
     -iPost.e02 / iPost.e12,
     iPost.e01 / iPost.e12,
@@ -209,14 +208,14 @@ function translateThenRotate(
   transitionPipe.rotation.z = MathUtils.degToRad(initialOrientation.value + 90);
   transitionPipe.translateY(transitionDistance / 2);
   transitionPipe.scale.y = transitionDistance;
-  debugText.value += ` Start is behind, translate by ${transitionDistance.toFixed(
-    2
-  )} then rotate by ${rotateAmount.toFixed(1)}`;
+  // debugText.value += ` Start is behind, translate by ${transitionDistance.toFixed(
+  //   2
+  // )} then rotate by ${rotateAmount.toFixed(1)}`;
   return [pivot, turnRad];
 }
 
-function modifyTurningArc(radius: number, arcLengthDegree: number) {
-  turnArc.geometry.dispose();
+function modifyTurningArc(arc: any, radius: number, arcLengthDegree: number) {
+  arc.geometry.dispose();
   const geo = new TorusGeometry(
     radius,
     4,
@@ -224,7 +223,7 @@ function modifyTurningArc(radius: number, arcLengthDegree: number) {
     Math.ceil(arcLengthDegree / 5),
     (arcLengthDegree * Math.PI) / 180
   );
-  turnArc.geometry = geo;
+  arc.geometry = geo;
 }
 
 function findBikePath() {
@@ -268,8 +267,8 @@ function findBikePath() {
       // Single Turn
       visualScene.value?.remove(rotationPivot2Sphere);
       visualScene.value?.remove(transitionSphere2);
+      visualScene.value?.remove(turnArc2);
       if (!helperPathsShown) {
-        visualScene.value?.add(turnArc);
         helperPathsShown = true;
       }
 
@@ -291,8 +290,7 @@ function findBikePath() {
           finalPoint,
           line1,
           line2,
-          bisector,
-          rotateAmount
+          bisector
         );
       } else {
         [pivotOfRotation, radiusOfRotation] = translateThenRotate(
@@ -300,8 +298,7 @@ function findBikePath() {
           finalPoint,
           line1,
           line2,
-          bisector,
-          rotateAmount
+          bisector
         );
       }
       rotationPivotSphere.position.set(
@@ -312,7 +309,7 @@ function findBikePath() {
       turnArc.position.copy(rotationPivotSphere.position);
       // const turnRadius = pivotOfRotation.Vee(initialPoint).Length
       // debugText.value += `, turn radius ${radiusOfRotation.toFixed(2)}`
-      modifyTurningArc(radiusOfRotation, rotateAmount);
+      modifyTurningArc(turnArc, radiusOfRotation, rotateAmount);
       // if (rotateAmount < 180)
       if (i2xDistance > 0) {
         // lineup the arc with the final point
@@ -326,13 +323,15 @@ function findBikePath() {
       let rotateAmount = finalOrientation.value - initialOrientation.value;
       while (rotateAmount > 360) rotateAmount -= 360;
       while (rotateAmount < 0) rotateAmount += 360;
+      const bisectorOrientation =
+        (initialOrientation.value + finalOrientation.value) / 2;
       debugText.value = `TWO TURNS required i2x ${i2xDistance.toFixed(
         2
       )} x2f ${x2fDistance.toFixed(2)}`;
-      visualScene.value?.remove(turnArc);
       helperPathsShown = false;
       visualScene.value?.add(rotationPivot2Sphere);
       visualScene.value?.add(transitionSphere2);
+      visualScene.value?.add(turnArc2);
       const bisectorCtr = line1.Normalized.Add(line2.Normalized); // main bisector
       const bisectorLeft = line1.Normalized.Add(bisectorCtr.Normalized);
       const bisectorRight = bisectorCtr.Normalized.Add(line2.Normalized);
@@ -349,7 +348,12 @@ function findBikePath() {
         rightPivot.e01 / rightPivot.e12,
         0
       );
-      let leftPivot, leftRotationRadius;
+      turnArc2.position.set(
+        -rightPivot.e02 / rightPivot.e12,
+        rightPivot.e01 / rightPivot.e12,
+        0
+      );
+      let leftPivot, leftRotationRadius, leftTurnArcLength;
       if (Math.abs(i2xDistance) < Math.abs(x2fDistance)) {
         // start is closer to intersection, rotate then translate
         [leftPivot, leftRotationRadius] = rotateThenTranslate(
@@ -357,8 +361,7 @@ function findBikePath() {
           ctr2,
           line1,
           bisectorCtr,
-          bisectorLeft,
-          rotateAmount / 2
+          bisectorLeft
         );
         const ctr1 = bisectorCtr.Dot(leftPivot).Wedge(bisectorCtr);
         transitionSphere.position.set(
@@ -367,11 +370,19 @@ function findBikePath() {
           0
         );
         const transitionLength = ctr2.Normalized.Vee(ctr1.Normalized).Length;
-        transitionPipe.position.set(-ctr1.e02/ctr1.e12, ctr1.e01/ctr1.e12, 0)
-        transitionPipe.rotation.z = MathUtils.degToRad((finalOrientation.value + initialOrientation.value)/2 - 90)
-        transitionPipe.translateY(-transitionLength/2)
-        transitionPipe.scale.y = transitionLength
-        // debugText.value += `' center transition length: ${transitionLength.toFixed(2)}`
+        transitionPipe.position.set(
+          -ctr1.e02 / ctr1.e12,
+          ctr1.e01 / ctr1.e12,
+          0
+        );
+        transitionPipe.rotation.z = MathUtils.degToRad(
+          (finalOrientation.value + initialOrientation.value) / 2 - 90
+        );
+        transitionPipe.translateY(-transitionLength / 2);
+        transitionPipe.scale.y = transitionLength;
+        debugText.value += ` bisector orientation: ${bisectorOrientation.toFixed(
+          2
+        )}`;
       } else {
         // start is farther from intersection
         [leftPivot, leftRotationRadius] = translateThenRotate(
@@ -379,15 +390,30 @@ function findBikePath() {
           ctr2,
           line1,
           bisectorCtr,
-          bisectorLeft,
-          rotateAmount / 2
+          bisectorLeft
         );
+        debugText.value = `TWO turns, with left turn rad ${leftRotationRadius.toFixed(2)}`
       }
+      turnArc.position.set(
+          -leftPivot.e02 / leftPivot.e12,
+          leftPivot.e01 / leftPivot.e12,
+          0
+        );
+      turnArc.rotation.z = -MathUtils.degToRad(90 - bisectorOrientation);
+      leftTurnArcLength =
+          180 - bisectorOrientation + initialOrientation.value;
+
+      modifyTurningArc(turnArc, leftRotationRadius, leftTurnArcLength);
       rotationPivotSphere.position.set(
         -leftPivot.e02 / leftPivot.e12,
         leftPivot.e01 / leftPivot.e12,
         0
       );
+      const rightRotationRadius = rightPivot.Normalized.Vee(finalPoint.Normalized).Length
+      const rightTurnArcLength =
+          180 + finalOrientation.value - bisectorOrientation;
+      modifyTurningArc(turnArc2, rightRotationRadius, rightTurnArcLength)
+      turnArc2.rotation.z = MathUtils.degToRad(90 + bisectorOrientation )
     }
   } else {
     debugText.value = "Parallel lines";
