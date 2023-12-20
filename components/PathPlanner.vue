@@ -31,12 +31,10 @@ import { storeToRefs } from "pinia";
 import { FileLoader, MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
 import { useVisualStore } from "~/store/visual-store";
 const { makePoint, makeDirection } = usePGA2D();
-const CANVAS_SIZE = 320;
 const MARKER_LENGTH = 50;
-// const box: Ref<HTMLCanvasElement | null> = ref(null);
 const store = usePGAStore();
 const visualStore = useVisualStore();
-const { /*bodyPosition, bodyRotation, */ runMode } = storeToRefs(store);
+const { runMode, bodyPosition, bodyRotation } = storeToRefs(store);
 const { makeArrow, makeSphere, makePipe, makeArc } = visualStore;
 const {
   visualScene,
@@ -44,12 +42,9 @@ const {
   mousePositionOnGround,
   mouseWheelScrollAmount,
 } = storeToRefs(visualStore);
-// const initialPose = new Vector2();
-// const finalPose = new Vector2();
 const activePose: Ref<"initial" | "final"> = ref("initial");
 const pathDistance = ref(0);
 const debugText = ref("N/A");
-// let arrowOrientation = 0;
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
 const initialMarker = makeArrow(MARKER_LENGTH, 4, "green");
@@ -64,15 +59,13 @@ const transitionSphere2 = makeSphere(8, "white");
 const transitionPipe = makePipe(1, 4, "white");
 const arcFromInitial = makeArc(1, 4, 90, "white");
 const arcToFinal = makeArc(1, 4, 90, "white");
-let helperPathsShown = false;
-// let activeMarker = initialMarker;
+let douobleTurnPath = false
 onMounted(() => {
   visualScene.value?.add(intersectionSphere);
   visualScene.value?.add(rotationPivotSphere);
   visualScene.value?.add(transitionSphere);
   visualScene.value?.add(transitionPipe);
   visualScene.value?.add(arcFromInitial);
-  helperPathsShown = true;
 });
 
 watch(
@@ -81,17 +74,28 @@ watch(
     if (mode === "run") {
       visualScene.value?.remove(initialMarker);
       visualScene.value?.remove(finalMarker);
+      visualScene.value?.remove(transitionSphere)
+      visualScene.value?.remove(rotationPivotSphere)
+      visualScene.value?.remove(rotationPivot2Sphere)
+      visualScene.value?.remove(intersectionSphere)
+      visualScene.value?.remove(arcFromInitial)
+      visualScene.value?.remove(arcToFinal)
+    } else {
+      visualScene.value?.add(initialMarker);
+      visualScene.value?.add(finalMarker);
+      visualScene.value?.add(transitionSphere)
+      visualScene.value?.add(rotationPivotSphere)
+      visualScene.value?.add(intersectionSphere)
+      visualScene.value?.add(arcFromInitial)
+      if (douobleTurnPath) {
+        visualScene.value?.add(rotationPivot2Sphere)
+        visualScene.value?.add(arcToFinal)
+        visualScene.value?.add(rotationPivot2Sphere)
+      }
     }
   }
 );
 
-// watch(
-//   () => activePose.value,
-//   (active: "initial" | "final") => {
-//     // if (active === "initial") arrowOrientation = initialOrientation.value;
-//     // else arrowOrientation = finalOrientation.value;
-//   }
-// );
 function within360(x: number) {
   if (x > 360) return x - 360;
   if (x < 0) return x + 360;
@@ -111,6 +115,8 @@ watch(
       initialOrientation.value = within360(initialOrientation.value);
       initialMarker.position.copy(pos);
       initialMarker.rotation.z = MathUtils.degToRad(initialOrientation.value);
+      bodyPosition.value.set(pos.x, pos.y)
+      bodyRotation.value = -initialMarker.rotation.z
     } else {
       finalOrientation.value += wheelScrollAmount;
       finalOrientation.value = within360(finalOrientation.value);
@@ -262,12 +268,10 @@ function findBikePath() {
       ` X2F dist: ${x2fDistance.toFixed(2)}`;
     if (i2xDistance * x2fDistance > 0) {
       // Single Turn
+      douobleTurnPath = false
       visualScene.value?.remove(rotationPivot2Sphere);
       visualScene.value?.remove(transitionSphere2);
       visualScene.value?.remove(arcToFinal);
-      if (!helperPathsShown) {
-        helperPathsShown = true;
-      }
 
       let rotateAmount =
         i2xDistance < 0
@@ -321,19 +325,27 @@ function findBikePath() {
       }
     } else {
       // Double Turns
+      douobleTurnPath = true
       let headingDiff = finalOrientation.value - initialOrientation.value;
-      let finalOrient = finalOrientation.value
-      while (finalOrient > 180) finalOrient -= 360
-      while (finalOrient < -180) finalOrient += 360
-      let initOrient = initialOrientation.value
-      while (initOrient > 180) initOrient -= 360
-      while (initOrient < -180) initOrient += 360
       while (headingDiff > 180) headingDiff -= 360;
       while (headingDiff < -180) headingDiff += 360;
       const isDiverging = x2fDistance * headingDiff < 0;
-      const bisectorOrientation = (initOrient + finalOrient) / 2;
+      let bisectorOrientation = (initialOrientation.value + finalOrientation.value) / 2
+      // Confirm that the bisector orientation is pointing in the same
+      // direction as the initial and final orientations by computing
+      // its DOT product.
+      const ci = Math.cos(MathUtils.degToRad(initialOrientation.value))
+      const si = Math.sin(MathUtils.degToRad(initialOrientation.value))
+      const cf = Math.cos(MathUtils.degToRad(finalOrientation.value))
+      const sf = Math.sin(MathUtils.degToRad(finalOrientation.value))
+      const cb = Math.cos(MathUtils.degToRad(bisectorOrientation))
+      const sb = Math.sin(MathUtils.degToRad(bisectorOrientation))
+      if (ci * cb + si * sb < 0 || cf * cb + sf * sb < 0) {
+        debugText.value += ` Flip bisector from ${bisectorOrientation}`
+        bisectorOrientation = (bisectorOrientation + 180) % 360
+        debugText.value += ` to ${bisectorOrientation}`
+      }
       debugText.value += ` TWO TURNS, heading diff ${headingDiff.toFixed(2)}, bisector orientation ${bisectorOrientation.toFixed(2)}`
-      helperPathsShown = false;
       visualScene.value?.add(rotationPivot2Sphere);
       visualScene.value?.add(transitionSphere2);
       visualScene.value?.add(arcToFinal);

@@ -29,9 +29,7 @@ import {
   MeshBasicMaterial,
   DoubleSide,
   Raycaster,
-  Object3D,
-  Intersection,
-  AxesHelper,
+  Line3,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { useVisualStore } from "~/store/visual-store";
@@ -102,6 +100,12 @@ const textureLoader = new TextureLoader();
 const rayCaster = new Raycaster();
 const mousePointerPosition = new Vector2();
 const scene = new Scene();
+const cameraLine = new Line3()
+const cameraStart = new Vector3()
+const cameraEnd = new Vector3()
+const lookAtLine = new Line3()
+const lookAtStart = new Vector3()
+const lookAtEnd = new Vector3()
 visualScene.value = scene;
 // scene.add(new AxesHelper(120));
 scene.add(new AmbientLight());
@@ -213,15 +217,34 @@ function addVisualAccessories() {
   steeringFork.add(frontWheelPlaneMesh);
   bike.add(rearWheelPlaneMesh);
 }
+
+
 watch(
   () => runMode.value,
   (currentMode: "plan" | "run") => {
     if (currentMode == "plan") {
       if (showGeometry.value) removeVisualAccessories();
-      camera.position.set(0, -500, 800);
-      camera.lookAt(0, -200, 0);
+      // camera.position.set(0, -500, 700);
+      // camera.lookAt(0, -200, 0);
+      cameraStart.set(WHEEL_RADIUS, -100, 50)
+      cameraEnd.set(0, -500, 700)
+      cameraLine.set(cameraStart, cameraEnd)
+      lookAtStart.set(WHEEL_BASE / 2, 0, 5)
+      lookAtEnd.set(0, -200, 0)
+      lookAtLine.set(lookAtStart, lookAtEnd)
       bike.remove(camera);
       scene.add(camera);
+      let t = 0
+      const cameraTimer = setInterval(() => {
+        if (t > 1) clearInterval(cameraTimer)
+        else {
+          cameraLine.at(t, cameraStart)
+          lookAtLine.at(t, lookAtStart)
+          camera.position.copy(cameraStart);
+          camera.lookAt(lookAtStart)
+          t += 0.02
+        }
+      }, 30)
       glcanvas.value?.addEventListener("mousemove", trackMouseIn3D);
       glcanvas.value?.addEventListener("wheel", trackWheel);
     } else {
