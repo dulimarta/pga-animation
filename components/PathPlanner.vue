@@ -324,11 +324,12 @@ function doDoubleArc(
     let arcCenterFound = false;
     let count = 0;
     let H;
-    while (lowAlpha < hiAlpha && !arcCenterFound && count < 100) {
+    let distanceHC = 0
+    while (lowAlpha < hiAlpha && !arcCenterFound) {
       alpha = (lowAlpha + hiAlpha) / 2;
       H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
       const distanceHE = H.Vee(E).Length;
-      const distanceHC = H.Vee(finalPoint).Length;
+      distanceHC = H.Vee(finalPoint).Length;
       console.debug(
         ` |HC| = ${distanceHC.toFixed(3)}, |EA| = ${distanceEA.toFixed(
           3
@@ -336,7 +337,7 @@ function doDoubleArc(
           3
         )} vs. |HE| = ${distanceHE.toFixed(3)}`
       );
-      if (Math.abs(distanceHC + distanceEA - distanceHE) < 1e-5) {
+      if (Math.abs(distanceHC + distanceEA - distanceHE) < 1e-3) {
         arcCenterFound = true;
         console.debug("Arc ctr found");
       } else if (distanceHE > distanceHC + distanceEA) {
@@ -352,7 +353,20 @@ function doDoubleArc(
       }
       count++;
     }
+    const lineHE = H.Vee(E)
+    const outgoingArcLength = MathUtils.radToDeg(Math.acos(lineHE.Normalized.Dot(startPerp.Normalized)))
+    const incomingArcLength = MathUtils.radToDeg(Math.acos(lineHE.Normalized.Dot(targetPerp.Normalized)))
+    debugText.value += `' outgoing arc ${outgoingArcLength.toFixed(1)} incoming arc length ${incomingArcLength.toFixed(1)}`
     rotationPivot2Sphere.position.set(-H.e02 / H.e12, H.e01 / H.e12, 0);
+    transitionPipe.position.z = -100
+    arcFromInitial.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0)
+    arcFromInitial.rotation.z = MathUtils.degToRad(90 - outgoingArcLength + initialOrientation.value)
+    modifyTurningArc(arcFromInitial, distanceEA, outgoingArcLength)
+    arcToFinal.position.z = -100
+    arcToFinal.position.set(-H.e02 / H.e12, H.e01 / H.e12, 0)
+    arcToFinal.rotation.z = MathUtils.degToRad(- incomingArcLength + finalOrientation.value - 90)
+    visualScene.value?.add(arcToFinal);
+    modifyTurningArc(arcToFinal, distanceHC, incomingArcLength)
     return true;
   } else {
     debugText.value += `Start point can't catch up`;

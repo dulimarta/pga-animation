@@ -24,6 +24,14 @@
         id="finaldirection"
       >
       <label for="finaldirection">Flip Target Orientation</label>
+      <input
+        id="alpha"
+        type="range"
+        min="0"
+        max="1"
+        step="0.001"
+      >
+      <label for="alpha">Alpha</label>
     </div>
     <div id="ganja-graph"></div>
   </div>
@@ -34,16 +42,16 @@
       // const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0) //.Normalized
       const makePoint = (x, y) => (1e0 + x * 1e1 + y * 1e2).Dual
       const makeDirection = (dx, dy) => !(dx * 1e1 + dy * 1e2).Normalized
-      const initialPoint = makePoint(-1.7, -0.5)
+      const initialPoint = makePoint(-3.5, -2.3)
       const initialDirection = makeDirection(0.1, 0.15).Normalized
-      const finalPoint = makePoint(0.7, 0.1)
+      const finalPoint = makePoint(-1, 1.3)
       let finalDirection = makeDirection(-0.1, 0.2).Normalized
       document.getElementById("finaldirection").addEventListener('change', (ev) => {
         finalDirection = -finalDirection
       })
       document.getElementById("ganja-graph").appendChild(this.graph(() => {
-        const iHead = initialPoint + 0.5 * initialDirection
-        const fHead = finalPoint + 0.5 * finalDirection
+        const iHead = initialPoint + initialDirection
+        const fHead = finalPoint + finalDirection
         const line1 = initialPoint.Vee(initialDirection)
         const line2 = finalPoint.Vee(finalDirection)
         const p12 = line1.Wedge(line2)
@@ -58,7 +66,7 @@
         // const bisector = i2pDistance * p2fDistance > 0 ?
         //   line1.Normalized.Sub(line2.Normalized) :
         //   line1.Normalized.Add(line2.Normalized)
-        if (i2pDistance * p2fDistance > 0) {
+        if (false & i2pDistance * p2fDistance > 0) {
           let perp1, perp2
           let pivot
           let T1, T2
@@ -91,7 +99,7 @@
 
             // 0xff0000, finalTangent, "T2"
           ]
-        } else {
+        } else if (false) {
           const bisector2 = line1.Normalized.Add(line2.Normalized)
           const bisector1 = line1.Normalized.Add(bisector2.Normalized)
           const bisector3 = bisector2.Normalized.Add(line2.Normalized)
@@ -121,7 +129,8 @@
           // const T2 = line2.Dot(pivot3).Wedge(line2)
           return [`Path: ${path}`,
             0x00aa00, initialPoint, "Start", iHead, line1,
-            0xff0000, finalPoint, "End", fHead, line2, 
+            0xff00ff,
+            0xff0000, finalPoint, "End", fHead, line2,
             0x000000, p12,//`${(angle1 * 180 / Math.PI).toFixed(2)} degrees`,
             r1, "R1", r2, "R2", , c2, `C2 ${ptoc2.toFixed(2)}`, ...recipe, [c2, r2], [r2, finalPoint],
             0x99bb99, bisector1, bisector2, bisector3,
@@ -132,10 +141,62 @@
             // [pivot1,pivot2], [pivot2,pivot3], 
             // [pivot3, T2]
           ]
+        } else {
+
+          const marker = makePoint(1, 0)
+          // Calculated points must be normalized
+          const startPerp = line1.Dot(initialPoint)
+          const targetPerp = line2.Dot(finalPoint)
+          const E = startPerp.Wedge(line2).Normalized
+          const P = line1.Wedge(line2).Normalized
+          const M = startPerp.Wedge(targetPerp).Normalized
+          const distanceEA = initialPoint.Vee(E).Length
+          const distanceEC = finalPoint.Vee(E).Length
+          const distanceEP = P.Vee(E).Length
+          let text
+          if (distanceEC > distanceEP)
+            text = `Can be solved using a single turn`
+          else if (distanceEA < distanceEC)
+            text = "Dual Arc OK"
+          else text = "Start point can't catchup"
+          let lowAlpha = 0
+          let hiAlpha = 1
+          let alpha = document.getElementById("alpha").value
+          // let alpha
+          let arcCenterFound = false
+          while (lowAlpha < hiAlpha && !arcCenterFound) {
+            // alpha = (lowAlpha + hiAlpha) / 2
+            const H = (1 - alpha) * M + alpha * finalPoint
+            const distanceHE = H.Vee(E).Length
+            const distanceHC = H.Vee(finalPoint).Length
+            console.debug(` |HC| = ${distanceHC.toFixed(3)}, |EA| = ${distanceEA.toFixed(3)} Total:${(distanceHC + distanceEA).toFixed(3)} vs. |HE| = ${distanceHE.toFixed(3)}`)
+            debugger
+            if (Math.abs(distanceHC + distanceEA - distanceHE) < 1e-5) {
+              arcCenterFound = true
+              text = 'Arc ctr found'
+            }
+            else if (distanceHE > distanceHC + distanceEA) {
+              text = `HC is too short, alpha ${alpha} needs to move away from target`
+              hiAlpha = alpha
+            } else {
+              text = `HC is too long, alpha ${alpha} needs to move closer to target`
+              lowAlpha = alpha
+            }
+          }
+          const arcCenter = (1 - alpha) * M + alpha * finalPoint
+          return [text + `${(distanceEA + distanceHC).toFixed(3)} vs. ${distanceHE.toFixed(3)} `,
+            initialPoint, "A",
+            iHead, finalPoint, "C", fHead,
+            0xaaaaaa, line1, line2,
+            0xFF0000, [initialPoint, iHead],
+            0x009900, [finalPoint, fHead],
+            0x0000ff, E, "E", [initialPoint, E], distanceEA.toFixed(2),
+          [finalPoint, E], distanceEC.toFixed(2),
+            0xff00ff, startPerp, M, "M", arcCenter, 'H'
+          ]
         }
-        s
       },
-        { grid: true, gl: false, lineWidth: 3, animate: true }))
+        { grid: true, gl: false, lineWidth: 3, animate: false, scale: 0.4 }))
     })
   </script>
 </body>
