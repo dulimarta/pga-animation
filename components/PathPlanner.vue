@@ -152,7 +152,9 @@ function parseLine(text: string, L: any): string {
   )}`;
 }
 function parsePoint(text: string, P: any): string {
-  return `${text}: (${-P.e02.toFixed(2)},${P.e01.toFixed(2)})`;
+  return `${text}: (${-P.e02.toFixed(2)},${P.e01.toFixed(2)} Scale = ${
+    P.e12
+  }})`;
 }
 
 function rotateThenTranslate(
@@ -307,68 +309,25 @@ function doDoubleArc(
   const E = startPerp.Wedge(line2).Normalized;
   const P = line1.Wedge(line2).Normalized;
   const M = startPerp.Wedge(targetPerp).Normalized;
-  const distanceEA = initialPoint.Vee(E).Length;
+  if (M.e12 < 0) {
+    M.e01 /= M.e12;
+    M.e02 /= M.e12;
+    M.e12 = 1;
+  }
+  const outgoingRadius = initialPoint.Vee(E).Length;
   const distanceEC = finalPoint.Vee(E).Length;
   const distanceEP = P.Vee(E).Length;
+  debugText.value += ` EA:${outgoingRadius.toFixed(2)} EC:${distanceEC.toFixed(
+    2
+  )} EP:${distanceEP.toFixed(2)} `;
   if (distanceEC > distanceEP) {
+    // target point is ahead of the heading intersection
     debugText.value += `Does not require double arc, use single turn`;
     return false;
-  } else if (distanceEA < distanceEC) {
-    debugText.value += " => OK";
-    intersectionSphere.position.set(-P.e02 / P.e12, P.e01 / P.e12, 0);
-    rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
-    transitionSphere2.position.set(-M.e02 / M.e12, M.e01 / M.e12, 0);
-    let lowAlpha = 0;
-    let hiAlpha = 1;
-    let alpha;
-    let arcCenterFound = false;
-    let count = 0;
-    let H;
-    let distanceHC = 0
-    while (lowAlpha < hiAlpha && !arcCenterFound) {
-      alpha = (lowAlpha + hiAlpha) / 2;
-      H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
-      const distanceHE = H.Vee(E).Length;
-      distanceHC = H.Vee(finalPoint).Length;
-      console.debug(
-        ` |HC| = ${distanceHC.toFixed(3)}, |EA| = ${distanceEA.toFixed(
-          3
-        )} Total:${(distanceHC + distanceEA).toFixed(
-          3
-        )} vs. |HE| = ${distanceHE.toFixed(3)}`
-      );
-      if (Math.abs(distanceHC + distanceEA - distanceHE) < 1e-3) {
-        arcCenterFound = true;
-        console.debug("Arc ctr found");
-      } else if (distanceHE > distanceHC + distanceEA) {
-        console.debug(
-          `HC is too short, alpha ${alpha} needs to move away from target`
-        );
-        hiAlpha = alpha;
-      } else {
-        console.debug(
-          `HC is too long, alpha ${alpha} needs to move closer to target`
-        );
-        lowAlpha = alpha;
-      }
-      count++;
-    }
-    const lineHE = H.Vee(E)
-    const outgoingArcLength = MathUtils.radToDeg(Math.acos(lineHE.Normalized.Dot(startPerp.Normalized)))
-    const incomingArcLength = MathUtils.radToDeg(Math.acos(lineHE.Normalized.Dot(targetPerp.Normalized)))
-    debugText.value += `' outgoing arc ${outgoingArcLength.toFixed(1)} incoming arc length ${incomingArcLength.toFixed(1)}`
-    rotationPivot2Sphere.position.set(-H.e02 / H.e12, H.e01 / H.e12, 0);
-    transitionPipe.position.z = -100
-    arcFromInitial.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0)
-    arcFromInitial.rotation.z = MathUtils.degToRad(90 - outgoingArcLength + initialOrientation.value)
-    modifyTurningArc(arcFromInitial, distanceEA, outgoingArcLength)
-    arcToFinal.position.z = -100
-    arcToFinal.position.set(-H.e02 / H.e12, H.e01 / H.e12, 0)
-    arcToFinal.rotation.z = MathUtils.degToRad(- incomingArcLength + finalOrientation.value - 90)
-    visualScene.value?.add(arcToFinal);
-    modifyTurningArc(arcToFinal, distanceHC, incomingArcLength)
-    return true;
-  } else {
+  }
+
+  if (distanceEC < outgoingRadius) {
+    // C is inside the outgoing circle
     debugText.value += `Start point can't catch up`;
     intersectionSphere.position.z = -100;
     rotationPivotSphere.position.z = -100;
@@ -376,6 +335,98 @@ function doDoubleArc(
     transitionSphere2.position.z = -100;
     return false;
   }
+
+  let leftToRightArcs = false;
+  debugText.value += " => OK";
+  if (startToIntersectionDistance > 0) {
+    leftToRightArcs = true;
+    debugText.value += " Left-To-Right";
+  } else {
+    leftToRightArcs = false;
+    debugText.value += " Right-To-Left";
+  }
+  intersectionSphere.position.set(-P.e02 / P.e12, P.e01 / P.e12, 0);
+  rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
+  transitionSphere2.position.set(-M.e02 / M.e12, M.e01 / M.e12, 0);
+  let lowAlpha = 0;
+  let hiAlpha = 1;
+  let alpha;
+  let arcCenterFound = false;
+  let count = 0;
+  let H;
+  let distanceHC = 0;
+  // if (leftToRightArcs) {
+  //   const alpha = 0.3
+  //   H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
+  //   debugText.value += parsePoint("M at", M)
+  // } else {
+  while (lowAlpha < hiAlpha && !arcCenterFound && count < 100) {
+    alpha = (lowAlpha + hiAlpha) / 2;
+    H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
+    const distanceHE = H.Vee(E).Length;
+    distanceHC = H.Vee(finalPoint).Length;
+    if (leftToRightArcs) {
+      console.debug(
+        ` |HC| = ${distanceHC.toFixed(3)}, |EA| = ${outgoingRadius.toFixed(
+          3
+        )} Total:${(distanceHC + outgoingRadius).toFixed(
+          3
+        )} vs. |HE| = ${distanceHE.toFixed(3)}`
+      );
+      // debugger
+    }
+    if (Math.abs(distanceHC + outgoingRadius - distanceHE) < 1e-3) {
+      arcCenterFound = true;
+    } else if (distanceHE > distanceHC + outgoingRadius) {
+      if (leftToRightArcs)
+        console.debug(
+          `HC is too short, alpha ${alpha} needs to move away from target`
+        );
+      hiAlpha = alpha;
+    } else {
+      if (leftToRightArcs)
+        console.debug(
+          `HC is too long, alpha ${alpha} needs to move closer to target`
+        );
+      lowAlpha = alpha;
+    }
+    count++;
+  }
+  if (arcCenterFound) {
+    const lineHE = H.Vee(E);
+    const oArcLenDeg = MathUtils.radToDeg(
+      Math.acos(lineHE.Normalized.Dot(startPerp.Normalized))
+    );
+    const outgoingArcLength = leftToRightArcs ? 180 - oArcLenDeg : oArcLenDeg;
+    const iArcLenDeg = MathUtils.radToDeg(
+      Math.acos(lineHE.Normalized.Dot(targetPerp.Normalized))
+    );
+    const incomingArcLength = leftToRightArcs ? 180 - iArcLenDeg : iArcLenDeg;
+    debugText.value += ` outgoing arc ${outgoingArcLength.toFixed(
+      1
+    )} incoming arc length ${incomingArcLength.toFixed(1)}`;
+    rotationPivot2Sphere.position.set(-H.e02 / H.e12, H.e01 / H.e12, 0);
+    transitionPipe.position.z = -100;
+    transitionSphere.position.z = -100;
+    arcFromInitial.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
+    arcFromInitial.rotation.z =
+      startToIntersectionDistance < 0
+        ? MathUtils.degToRad(90 - outgoingArcLength + initialOrientation.value)
+        : MathUtils.degToRad(initialOrientation.value - 90);
+    modifyTurningArc(arcFromInitial, outgoingRadius, outgoingArcLength);
+    arcToFinal.position.set(-H.e02 / H.e12, H.e01 / H.e12, 0);
+    arcToFinal.rotation.z =
+      intersectionToFinalDistance > 0
+        ? MathUtils.degToRad(-incomingArcLength + finalOrientation.value - 90)
+        : MathUtils.degToRad(90 + finalOrientation.value);
+    visualScene.value?.add(arcToFinal);
+    modifyTurningArc(arcToFinal, distanceHC, incomingArcLength);
+  } else {
+    debugText.value += " cannot find incoming arc";
+    arcFromInitial.position.z = -100;
+    arcToFinal.position.z = -100;
+  }
+  return true;
 }
 
 function doDoubleTurn(

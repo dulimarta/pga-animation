@@ -46,13 +46,13 @@ with respect to the two headings.
 \begin{table}
   \begin{tabular}{ccccll}
     \toprule
-    Overall Turn & \multicolumn{2}{c}{Relative position of $E$ w.r.t.} & Path & Comment\\
-    & start heading & target heading &\\
+    Overall Turn  & \multicolumn{2}{c}{Relative position of $E$ w.r.t.} & Path           & Comment                            \\
+                  & start heading                                       & target heading &                                    \\
     \midrule
-    $< 180^\circ$ & in front & behind & single turn\\
-    $> 180^\circ$ & behind & in front & single turn\\
-    any & in front & in front & double turns & converging headings\\
-    any & behind & behind & double turns & diverging headings\\
+    $< 180^\circ$ & in front                                            & behind         & single turn                        \\
+    $> 180^\circ$ & behind                                              & in front       & single turn                        \\
+    any           & in front                                            & in front       & double turns & converging headings \\
+    any           & behind                                              & behind         & double turns & diverging headings  \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -65,23 +65,23 @@ The extending headings are shows by the dotted lines intersected at $E$.
 Line $EF$ is the angle bisector of the both heading lines, and point $F$ is the
 pivot of rotation.
 
-\begin{figure}[hbt]  
+\begin{figure}[hbt]
   \begin{tabular}{cc}
-    \includegraphics[width=6cm]{screenshots/single-acute-turn-rot-trans.png} &
-    \includegraphics[width=6cm]{screenshots/single-acute-turn-trans-rot.png}\\
-    (a) & (b)\\
-  \end{tabular} 
+    \includegraphics[width=6cm]{screenshots/single-acute-turn-rot-trans.png} & 
+    \includegraphics[width=6cm]{screenshots/single-acute-turn-trans-rot.png}       \\
+    (a)                                                                      & (b) \\
+  \end{tabular}
   \caption{Path planning with a single acute turn}
   \label{fig:path1turnacute}
 \end{figure}
 
 
-\begin{figure}[h]  
+\begin{figure}[h]
   \begin{tabular}{cc}
-    \includegraphics[width=6cm]{screenshots/single-obtuse-turn-rot-trans.png} &
-    \includegraphics[width=6cm]{screenshots/single-obtuse-turn-trans-rot.png}\\
-    (a) & (b)\\
-  \end{tabular} 
+    \includegraphics[width=6cm]{screenshots/single-obtuse-turn-rot-trans.png} & 
+    \includegraphics[width=6cm]{screenshots/single-obtuse-turn-trans-rot.png}       \\
+    (a)                                                                       & (b) \\
+  \end{tabular}
   \caption{Path planning with a single obtuse turn}
   \label{fig:path1turnobtuse}
 \end{figure}
@@ -89,17 +89,17 @@ pivot of rotation.
 
 There are two cases to consider:
 \begin{itemize}
-  \item In Figure~\ref{fig:path1turnacute}a, when $|AE| < |CE|$, the bike first rotates from $A$ and $G$ around the 
-  pivot $F$  before it continues to translate from $G$ to $C$. The pivot of rotation $F$ is the perpendicular
-  intersection from $A$ with the angle bisector.
-  \item In Figure~\ref{fig:path1turnacute}b, when $|AE| > |CE|$, the bike first translates from $A$ to $G$ before it 
-  continues to rotate from $G$ to $C$ around the pivot $F$. The pivot of rotation $F$ is determined
-  by the perpendicular intersection from $C$ with the angle bisector.
+  \item In Figure~\ref{fig:path1turnacute}a, when $|AE| < |CE|$, the bike first rotates from $A$ and $G$ around the
+        pivot $F$  before it continues to translate from $G$ to $C$. The pivot of rotation $F$ is the perpendicular
+        intersection from $A$ with the angle bisector.
+  \item In Figure~\ref{fig:path1turnacute}b, when $|AE| > |CE|$, the bike first translates from $A$ to $G$ before it
+        continues to rotate from $G$ to $C$ around the pivot $F$. The pivot of rotation $F$ is determined
+        by the perpendicular intersection from $C$ with the angle bisector.
 \end{itemize}
 
 In general, when the turn angle is \textbf{acute}, 
 i.e. the intersection point is in front of the start $A$ and behind the target $C$, 
-the pivot of rotation is determined by the \textbf{closer} 
+the pivot of rotation is determined by the \textbf{closer}
 of the starting/target point to the intersection $E$.
 However, when the turn angle is \textbf{obtuse}, i.e. the intersection point is in behind the start $A$ and in front of the target $C$, 
 the pivot or rotation is determined by the \textbf{further}
@@ -115,18 +115,18 @@ the three dashed lines). The second bisector (the center dashed line) defines a 
 between the two the turn.
 
 \begin{figure}[hbt]
-\begin{tabular}{cc}
-  \includegraphics[height=7cm]{screenshots/double-acute-turn-rot-trans.png}
-\includegraphics[height=7cm]{screenshots/double-acute-turn-trans-rot.png}
-\end{tabular}
+  \begin{tabular}{cc}
+    \includegraphics[height=7cm]{screenshots/double-acute-turn-rot-trans.png}
+    \includegraphics[height=7cm]{screenshots/double-acute-turn-trans-rot.png}
+  \end{tabular}
 \end{figure}
 
 \begin{itemize}
   \item When start is closer to the intersection $|AE| < |CE|$, the pivot of the
-  outgoing turn at $F$ is determined from the perpendicular intersection from $A$
-  with the first 3-angle bisector.
+        outgoing turn at $F$ is determined from the perpendicular intersection from $A$
+        with the first 3-angle bisector.
   \item When target is closer to the intersection point $|CE| < |AE|$, both
-  pivots of rotation ($F$ and $G$, and $|EF| = |EG|$) are determined by the target point.
+        pivots of rotation ($F$ and $G$, and $|EF| = |EG|$) are determined by the target point.
 \end{itemize}
 
 \subsection*{Shorter Double Turn Paths}
@@ -138,35 +138,40 @@ In the diagram in Figure~\ref{fig:double-RL} assume the following conditions
 \begin{itemize}
   \item Point $P$ is the intersection between the two headings
   \item With respect to the target heading, $P$ is behind the target. Otherwise, the path
-  can be solved using a single turn.
+        can be solved using a single turn.
   \item The target point $C$ is to the right of the start heading. Otherwise, the solution requires
-  a left turn followed by a right turn
+        a left turn followed by a right turn
   \item Point $M$ is the intersection of the perpendicular of both headings
   \item Point $E$ is the intersection of the target heading and the perpendicular of the start heading
   \item Most importantly, $|EA| < |EC|$ this should allow a right turn which originates from $A$ to ``catch up''
-  with the target point $C$
+        with the target point $C$
 \end{itemize}
 
 \begin{figure}[hbt]
-\includegraphics[width=12cm]{screenshots/double-turns-right-left.png}
-\caption{Shorter Double Turn: Right-Then-Left}
-\label{fig:double-RL}
+  \begin{tabular}{cc}    
+    \includegraphics[width=6cm]{screenshots/double-turns-right-left.png} & 
+    \includegraphics[width=6cm]{screenshots/double-turns-left-right.png}\\
+    R-to-L & L-to-R
+  \end{tabular}
+  \caption{Double Turn Using Consecutive Arcs}
+  \label{fig:double-RL}
 \end{figure}
 
 The two arcs are determined as followed:
 
 \begin{itemize}
   \item The outgoing arc/circle must be tangent to $A$, and we can select $E$ as its center
-  \item The incoming arc must be tangent to $C$ and also tangent to the outgoing circle, 
-  Hence its center must be somewhere on $CM$
+  \item The incoming arc must be tangent to $C$ and also tangent to the outgoing circle,
+        Hence its center $H$ must be somewhere on $CM$
 \end{itemize}
 The center $H(x,y)$ must satisfy the following constraints:
 
 \begin{itemize}
-  \item $CH \perp EC$, i.e. $(a-p)(x-p) + (b-q)(y-q) = 0$
-  \item $|EH| = R + |CH|$, i.e. $\sqrt{(x-a)^2 + (y-b)^2} = R + \sqrt{(x-p)^2 + (y-q)^2}$
+  \item $H = \alpha M + (1-alpha) C$
+  \item $CH \perp CE$
+  \item $|HE| = R + |HK| = R + |CH|$
 \end{itemize}
 
-Instead of directly solving the equations analytically, we can apply binary search technique to find the exact
-location of $H$ along $CM$.
+Instead of directly solving the equations analytically, we can apply binary search technique to find $\alpha$
+that represents the exact location of $H$ along $CM$.
 \end{document}
