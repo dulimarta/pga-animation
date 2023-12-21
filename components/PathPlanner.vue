@@ -28,22 +28,20 @@
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
-import { FileLoader, MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
+import { MathUtils, TorusGeometry, Vector3 } from "three";
 import { useVisualStore } from "~/store/visual-store";
+import Algebra from "ganja.js";
+
 const { makePoint, makeDirection } = usePGA2D();
 const MARKER_LENGTH = 50;
 const store = usePGAStore();
 const visualStore = useVisualStore();
+const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const { runMode, bodyPosition, bodyRotation } = storeToRefs(store);
 const { makeArrow, makeSphere, makePipe, makeArc } = visualStore;
-const {
-  visualScene,
-  visualCamera,
-  mousePositionOnGround,
-  mouseWheelScrollAmount,
-} = storeToRefs(visualStore);
+const { visualScene, mousePositionOnGround, mouseWheelScrollAmount } =
+  storeToRefs(visualStore);
 const activePose: Ref<"initial" | "final"> = ref("initial");
-const pathDistance = ref(0);
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
@@ -60,12 +58,16 @@ const transitionPipe = makePipe(1, 4, "white");
 const arcFromInitial = makeArc(1, 4, 90, "white");
 const arcToFinal = makeArc(1, 4, 90, "white");
 let doubleTurnPath = false;
+
 onMounted(() => {
   visualScene.value?.add(intersectionSphere);
   visualScene.value?.add(rotationPivotSphere);
   visualScene.value?.add(transitionSphere);
   visualScene.value?.add(transitionPipe);
   visualScene.value?.add(arcFromInitial);
+
+  visualScene.value?.add(rotationPivot2Sphere);
+  visualScene.value?.add(transitionSphere2);
 });
 
 watch(
@@ -235,16 +237,17 @@ function doSingleTurn(
   intersectionToFinalDistance: number
 ) {
   doubleTurnPath = false;
-  visualScene.value?.remove(rotationPivot2Sphere);
-  visualScene.value?.remove(transitionSphere2);
+  // visualScene.value?.remove(rotationPivot2Sphere);
+  // visualScene.value?.remove(transitionSphere2);
   visualScene.value?.remove(arcToFinal);
 
   let rotateAmount =
     startToIntersectionDistance < 0
       ? finalOrientation.value - initialOrientation.value
       : 360 - finalOrientation.value + initialOrientation.value;
-  while (rotateAmount > 360) rotateAmount -= 360;
-  while (rotateAmount < 0) rotateAmount += 360;
+  rotateAmount = within360(rotateAmount);
+  // while (rotateAmount > 360) rotateAmount -= 360;
+  // while (rotateAmount < 0) rotateAmount += 360;
   const bisector = line1.Normalized.Sub(line2.Normalized);
   debugText.value += " ONE TURN only---";
   let pivotOfRotation, radiusOfRotation;
@@ -287,6 +290,77 @@ function doSingleTurn(
     arcFromInitial.rotation.z = MathUtils.degToRad(
       initialOrientation.value - 90
     );
+  }
+}
+
+function doDoubleArc(
+  initialPoint: any,
+  finalPoint: any,
+  line1: any,
+  line2: any,
+  startToIntersectionDistance: number,
+  intersectionToFinalDistance: number
+) {
+  debugText.value += " DOUBLE ARCS";
+  const startPerp = line1.Dot(initialPoint);
+  const targetPerp = line2.Dot(finalPoint);
+  const E = startPerp.Wedge(line2).Normalized;
+  const P = line1.Wedge(line2).Normalized;
+  const M = startPerp.Wedge(targetPerp).Normalized;
+  const distanceEA = initialPoint.Vee(E).Length;
+  const distanceEC = finalPoint.Vee(E).Length;
+  const distanceEP = P.Vee(E).Length;
+  if (distanceEC > distanceEP) {
+    debugText.value += `Does not require double arc, use single turn`;
+    return false;
+  } else if (distanceEA < distanceEC) {
+    debugText.value += " => OK";
+    intersectionSphere.position.set(-P.e02 / P.e12, P.e01 / P.e12, 0);
+    rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
+    transitionSphere2.position.set(-M.e02 / M.e12, M.e01 / M.e12, 0);
+    let lowAlpha = 0;
+    let hiAlpha = 1;
+    let alpha;
+    let arcCenterFound = false;
+    let count = 0;
+    let H;
+    while (lowAlpha < hiAlpha && !arcCenterFound && count < 100) {
+      alpha = (lowAlpha + hiAlpha) / 2;
+      H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
+      const distanceHE = H.Vee(E).Length;
+      const distanceHC = H.Vee(finalPoint).Length;
+      console.debug(
+        ` |HC| = ${distanceHC.toFixed(3)}, |EA| = ${distanceEA.toFixed(
+          3
+        )} Total:${(distanceHC + distanceEA).toFixed(
+          3
+        )} vs. |HE| = ${distanceHE.toFixed(3)}`
+      );
+      if (Math.abs(distanceHC + distanceEA - distanceHE) < 1e-5) {
+        arcCenterFound = true;
+        console.debug("Arc ctr found");
+      } else if (distanceHE > distanceHC + distanceEA) {
+        console.debug(
+          `HC is too short, alpha ${alpha} needs to move away from target`
+        );
+        hiAlpha = alpha;
+      } else {
+        console.debug(
+          `HC is too long, alpha ${alpha} needs to move closer to target`
+        );
+        lowAlpha = alpha;
+      }
+      count++;
+    }
+    rotationPivot2Sphere.position.set(-H.e02 / H.e12, H.e01 / H.e12, 0);
+    return true;
+  } else {
+    debugText.value += `Start point can't catch up`;
+    intersectionSphere.position.z = -100;
+    rotationPivotSphere.position.z = -100;
+    rotationPivot2Sphere.position.z = -100;
+    transitionSphere2.position.z = -100;
+    return false;
   }
 }
 
@@ -419,9 +493,7 @@ function doDoubleTurn(
 
   while (incomingRotationArcLength < 0) incomingRotationArcLength += 360;
   while (incomingRotationArcLength > 360) incomingRotationArcLength -= 360;
-  // debugText.value += `incoming arc length ${incomingRotationArcLength.toFixed(
-  //   2
-  // )}, outgoing arc length ${outgoingRotationArcLength.toFixed(2)}`;
+
   modifyTurningArc(
     arcToFinal,
     incomingRotationRadius,
@@ -453,7 +525,7 @@ function findBikePath() {
   const line2 = finalPoint.Vee(finalDirection);
   const intersection = line1.Wedge(line2);
 
-  pathDistance.value = initialPoint.Vee(finalPoint).Length;
+  // pathDistance.value = initialPoint.Vee(finalPoint).Length;
   if (Math.abs(intersection.e12) > 1e-5) {
     intersectionSphere.position.set(
       -intersection.e02 / intersection.e12,
@@ -480,14 +552,25 @@ function findBikePath() {
         x2fDistance
       );
     } else {
-      doDoubleTurn(
-        initialPoint,
-        finalPoint,
-        line1,
-        line2,
-        i2xDistance,
-        x2fDistance
-      );
+      if (
+        doDoubleArc(
+          initialPoint,
+          finalPoint,
+          line1,
+          line2,
+          i2xDistance,
+          x2fDistance
+        ) === false
+      ) {
+        doDoubleTurn(
+          initialPoint,
+          finalPoint,
+          line1,
+          line2,
+          i2xDistance,
+          x2fDistance
+        );
+      }
     }
   } else {
     debugText.value = "Parallel lines";
