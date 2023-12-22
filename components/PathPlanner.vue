@@ -45,7 +45,7 @@ const activePose: Ref<"initial" | "final"> = ref("initial");
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
-const initialMarker = makeArrow(MARKER_LENGTH, 4, "green");
+const initialMarker = makeArrow(MARKER_LENGTH * 1.7, 4, "green");
 const finalMarker = makeArrow(MARKER_LENGTH, 4, "red");
 const initialMarkerShown = ref(false);
 const finalMarkerShown = ref(false);
@@ -97,6 +97,12 @@ watch(
     }
   }
 );
+
+function withinPlusMinus180(x: number): number {
+  while (x > 180) x -= 360;
+  while (x < -180) x += 360;
+  return x;
+}
 
 function within360(x: number) {
   if (x > 360) return x - 360;
@@ -303,19 +309,12 @@ function doDoubleArc(
   startToIntersectionDistance: number,
   intersectionToFinalDistance: number
 ) {
-  debugText.value += " DOUBLE ARCS";
   const startPerp = line1.Dot(initialPoint);
   const targetPerp = line2.Dot(finalPoint);
-  const E = startPerp.Wedge(line2).Normalized;
+  let E = startPerp.Wedge(line2).Normalized;
   const P = line1.Wedge(line2).Normalized;
-  const M = startPerp.Wedge(targetPerp).Normalized;
-  if (M.e12 < 0) {
-    M.e01 /= M.e12;
-    M.e02 /= M.e12;
-    M.e12 = 1;
-  }
-  const outgoingRadius = initialPoint.Vee(E).Length;
-  const distanceEC = finalPoint.Vee(E).Length;
+  let outgoingRadius = initialPoint.Vee(E).Length;
+  let distanceEC = finalPoint.Vee(E).Length;
   const distanceEP = P.Vee(E).Length;
   debugText.value += ` EA:${outgoingRadius.toFixed(2)} EC:${distanceEC.toFixed(
     2
@@ -325,10 +324,28 @@ function doDoubleArc(
     debugText.value += `Does not require double arc, use single turn`;
     return false;
   }
+  /* Four cases:
+    startToIntersectionDist   headingDiff
+           > 0                   > 0      diverging L-to-R
+           > 0                   < 0      converging L-to-R
+           < 0                   > 0      converging R-to-L
+           < 0                   < 0      diverging R-to-L              
+  */
+  const headingDiff = withinPlusMinus180(
+    finalOrientation.value - initialOrientation.value
+  );
 
-  if (distanceEC < outgoingRadius) {
-    // C is inside the outgoing circle
-    debugText.value += `Start point can't catch up`;
+  const isConverging = startToIntersectionDistance * headingDiff < 0;
+
+  if (
+    (isConverging &&
+      Math.abs(intersectionToFinalDistance) >
+        Math.abs(startToIntersectionDistance)) ||
+    (!isConverging &&
+      Math.abs(intersectionToFinalDistance) <
+        Math.abs(startToIntersectionDistance))
+  ) {
+    // target is way behind the start point
     intersectionSphere.position.z = -100;
     rotationPivotSphere.position.z = -100;
     rotationPivot2Sphere.position.z = -100;
@@ -336,15 +353,58 @@ function doDoubleArc(
     return false;
   }
 
-  let leftToRightArcs = false;
-  debugText.value += " => OK";
-  if (startToIntersectionDistance > 0) {
-    leftToRightArcs = true;
-    debugText.value += " Left-To-Right";
-  } else {
-    leftToRightArcs = false;
-    debugText.value += " Right-To-Left";
+  let modifiedOutgoingArcCenter = false;
+  if (distanceEC < outgoingRadius) {
+    let fractionDenom = 2;
+    if (E.e12 < 0) {
+      modifiedOutgoingArcCenter = true;
+      E.e01 /= E.e12;
+      E.e02 /= E.e12;
+      E.e12 = 1;
+    }
+    let newE;
+    while (distanceEC < outgoingRadius) {
+      // target is inside the outgoing circle, try to move the center of the outgoing
+      // circle closer to target
+      newE = PGA2D.Mul(1 / fractionDenom, E).Add(
+        PGA2D.Mul(1 - 1 / fractionDenom, initialPoint)
+      );
+      fractionDenom++;
+      distanceEC = finalPoint.Vee(newE).Length;
+      outgoingRadius = initialPoint.Vee(newE).Length;
+    }
+    debugText.value += ` MODIFIED outgoing arc center`;
+    // Attempt to move the center of outgoing arc
+    rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
+    rotationPivot2Sphere.position.set(-newE.e02, newE.e01, 0);
+
+    E = newE;
+    // arcFromInitial.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
+    // modifyTurningArc(arcFromInitial, outgoingRadius, 360)
+    // return true;
   }
+
+  // console.debug("Attempt to move E halfway ", parsePoint("start", initialPoint),
+  //   parsePoint("Old E", E), parsePoint(" to new E", newE))
+  // E = newE
+  // debugText.value += parsePoint(" to new  E", E);
+
+  // if (distanceEC < outgoingRadius) {
+  // }
+
+  debugText.value += `" DOUBLE ARCS with headingDiff ${headingDiff.toFixed(2)}`;
+  let isLeftRightArcs = startToIntersectionDistance > 0;
+  let M = isConverging ? startPerp.Wedge(targetPerp) : line1.Wedge(targetPerp);
+  M = M.Normalized;
+  if (M.e12 < 0) {
+    M.e01 /= M.e12;
+    M.e02 /= M.e12;
+    M.e12 = 1;
+  }
+
+  debugText.value +=
+    " => OK" + (isLeftRightArcs ? " Left-To-Right" : " Right-To-Left");
+
   intersectionSphere.position.set(-P.e02 / P.e12, P.e01 / P.e12, 0);
   rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
   transitionSphere2.position.set(-M.e02 / M.e12, M.e01 / M.e12, 0);
@@ -360,34 +420,37 @@ function doDoubleArc(
   //   H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
   //   debugText.value += parsePoint("M at", M)
   // } else {
+  if (modifiedOutgoingArcCenter) {
+    E.e01 *= -1;
+    E.e02 *= -1;
+    E.e12 *= -1;
+  }
   while (lowAlpha < hiAlpha && !arcCenterFound && count < 100) {
     alpha = (lowAlpha + hiAlpha) / 2;
     H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
     const distanceHE = H.Vee(E).Length;
     distanceHC = H.Vee(finalPoint).Length;
-    if (leftToRightArcs) {
-      console.debug(
-        ` |HC| = ${distanceHC.toFixed(3)}, |EA| = ${outgoingRadius.toFixed(
-          3
-        )} Total:${(distanceHC + outgoingRadius).toFixed(
-          3
-        )} vs. |HE| = ${distanceHE.toFixed(3)}`
-      );
-      // debugger
-    }
+    // console.debug(
+    //   ` |HC| = ${distanceHC.toFixed(3)}, |EA| = ${outgoingRadius.toFixed(
+    //     3
+    //   )} Total:${(distanceHC + outgoingRadius).toFixed(
+    //     3
+    //   )} vs. |HE| = ${distanceHE.toFixed(3)}`
+    // );
+    // debugger
     if (Math.abs(distanceHC + outgoingRadius - distanceHE) < 1e-3) {
       arcCenterFound = true;
     } else if (distanceHE > distanceHC + outgoingRadius) {
-      if (leftToRightArcs)
-        console.debug(
-          `HC is too short, alpha ${alpha} needs to move away from target`
-        );
+      // if (isLeftRightArcs)
+      //   console.debug(
+      //     `HC is too short, alpha ${alpha} needs to move away from target`
+      //   );
       hiAlpha = alpha;
     } else {
-      if (leftToRightArcs)
-        console.debug(
-          `HC is too long, alpha ${alpha} needs to move closer to target`
-        );
+      // if (isLeftRightArcs)
+      //   console.debug(
+      //     `HC is too long, alpha ${alpha} needs to move closer to target`
+      //   );
       lowAlpha = alpha;
     }
     count++;
@@ -397,11 +460,11 @@ function doDoubleArc(
     const oArcLenDeg = MathUtils.radToDeg(
       Math.acos(lineHE.Normalized.Dot(startPerp.Normalized))
     );
-    const outgoingArcLength = leftToRightArcs ? 180 - oArcLenDeg : oArcLenDeg;
+    const outgoingArcLength = isLeftRightArcs ? 180 - oArcLenDeg : oArcLenDeg;
     const iArcLenDeg = MathUtils.radToDeg(
       Math.acos(lineHE.Normalized.Dot(targetPerp.Normalized))
     );
-    const incomingArcLength = leftToRightArcs ? 180 - iArcLenDeg : iArcLenDeg;
+    const incomingArcLength = isLeftRightArcs ? 180 - iArcLenDeg : iArcLenDeg;
     debugText.value += ` outgoing arc ${outgoingArcLength.toFixed(
       1
     )} incoming arc length ${incomingArcLength.toFixed(1)}`;
@@ -438,9 +501,9 @@ function doDoubleTurn(
   intersectionToFinalDistance: number
 ) {
   doubleTurnPath = true;
-  let headingDiff = finalOrientation.value - initialOrientation.value;
-  while (headingDiff > 180) headingDiff -= 360;
-  while (headingDiff < -180) headingDiff += 360;
+  const headingDiff = withinPlusMinus180(
+    finalOrientation.value - initialOrientation.value
+  );
   const isDiverging = intersectionToFinalDistance * headingDiff < 0;
   let bisectorOrientation =
     (initialOrientation.value + finalOrientation.value) / 2;
@@ -531,13 +594,12 @@ function doDoubleTurn(
     startToIntersectionDistance < 0
       ? -MathUtils.degToRad(90 - bisectorOrientation)
       : MathUtils.degToRad(initialOrientation.value - 90);
-  outgoingRotationArcLength =
+  outgoingRotationArcLength = within360(
     startToIntersectionDistance < 0
       ? 180 - bisectorOrientation + initialOrientation.value
-      : 180 + bisectorOrientation - initialOrientation.value;
+      : 180 + bisectorOrientation - initialOrientation.value
+  );
 
-  while (outgoingRotationArcLength < 0) outgoingRotationArcLength += 360;
-  while (outgoingRotationArcLength > 360) outgoingRotationArcLength -= 360;
   modifyTurningArc(
     arcFromInitial,
     outgoingRotationRadius,
