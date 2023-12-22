@@ -119,6 +119,8 @@ between the two the turn.
     \includegraphics[height=7cm]{screenshots/double-acute-turn-rot-trans.png}
     \includegraphics[height=7cm]{screenshots/double-acute-turn-trans-rot.png}
   \end{tabular}
+  \caption{Double Turns}
+  \label{fig:path2turns}
 \end{figure}
 
 \begin{itemize}
@@ -130,32 +132,40 @@ between the two the turn.
 \end{itemize}
 
 \subsection*{Shorter Double Turn Paths}
-The double turn path can be improved two consecutive turning arcs: an outgoing arc from the start point
+Comparing the two double turns in Figure~\ref{fig:path2turns},  the case when the start point
+is ahead of target (the right diagram), can be improved using a shorter path.
+The straight line can be eliminated and the entire path is replaced with two consecutive turning arcs: 
+an outgoing arc from the start point
 followed by an incoming arc into the target point. Furthermore, these two arcs can either be 
 left-then-right or right-then-left.
 
+\begin{figure}[hbt]
+  \begin{tabular}{cc}
+    \includegraphics[width=6cm]{screenshots/double-turns-right-left.png} & 
+    \includegraphics[width=6cm]{screenshots/double-arcs-diverging-right-to-left.png}         \\
+    Convering R-to-L                                                     & Diverging R-to-L
+  \end{tabular}
+  \caption{Double Turn Using Consecutive Arcs}
+  \label{fig:double-RL}
+\end{figure}
+
 In the diagram in Figure~\ref{fig:double-RL} assume the following conditions
 \begin{itemize}
-  \item Point $P$ is the intersection between the two headings
-  \item With respect to the target heading, $P$ is behind the target. Otherwise, the path
-        can be solved using a single turn.
+  \item Point $P$ is the intersection between the two headings. Depending on the relative angle of the two
+        headings, they can intersect either behind or in front of the headings. Respectively, we distinguish
+        the two cases as \textbf{diverging} and \textbf{converging}.
+  \item For the converging case, $P$ is ahead of the target. For the diverging case,
+        the intersection $P$ is behind the start point.
+        Otherwise, we don't have to use two arcs; the path can be solved using a single turn.
   \item The target point $C$ is to the right of the start heading. Otherwise, the solution requires
         a left turn followed by a right turn
-  \item Point $M$ is the intersection of the perpendicular of both headings
+  \item When two headings are converging point $M$ is the intersection of the perpendicular of both headings.
+  Otherwise $M$ is the intersection between the perpendicular of the target heading and the start heading
   \item Point $E$ is the intersection of the target heading and the perpendicular of the start heading
   \item Most importantly, $|EA| < |EC|$ this should allow a right turn which originates from $A$ to ``catch up''
         with the target point $C$
 \end{itemize}
 
-\begin{figure}[hbt]
-  \begin{tabular}{cc}    
-    \includegraphics[width=6cm]{screenshots/double-turns-right-left.png} & 
-    \includegraphics[width=6cm]{screenshots/double-turns-left-right.png}\\
-    R-to-L & L-to-R
-  \end{tabular}
-  \caption{Double Turn Using Consecutive Arcs}
-  \label{fig:double-RL}
-\end{figure}
 
 The two arcs are determined as followed:
 
@@ -167,11 +177,28 @@ The two arcs are determined as followed:
 The center $H(x,y)$ must satisfy the following constraints:
 
 \begin{itemize}
-  \item $H = \alpha M + (1-alpha) C$
+  \item $H = \alpha M + (1-\alpha) C$
   \item $CH \perp CE$
   \item $|HE| = R + |HK| = R + |CH|$
 \end{itemize}
 
-Instead of directly solving the equations analytically, we can apply binary search technique to find $\alpha$
-that represents the exact location of $H$ along $CM$.
+Instead of directly solving the quadratic (or higher) equations analytically, we 
+apply binary search technique to find $\alpha$ that represents the exact location of $H$ along $CM$.
+
+\subsection*{Sharper Double Arc Turns}
+
+When the target point $C$ is inside the outgoing circle (the largest blue circle in the diagram), the arc on the 
+original outgoing circle is not curvy enough to reach the target. To remedy the situation, we move the center $E$
+along the line $EM$ until $C$ is outside of the outgoing circle. The search begins by moving $E$ to $E_\text{mod}$, 
+the midpoint of $EM$. If the midpoint does not work, the search continues using progressively smaller fractional proportions 
+$f$, i.e. $\frac12, \frac13, \frac14, \frac15, \ldots$ with the point interpolation formula $$E_\text{mod} = (1-f)E + fA$$
+These progressive proportions guarantee that $E$ is moving closer to $A$, hence sharper turn radii.
+
+\begin{figure}[hbt]
+  \begin{tabular}{cc}
+\includegraphics[width=6cm]{screenshots/DoubleArcModCenter.png} &
+\includegraphics[width=6cm]{screenshots/DoubleArcModCenterDiverging.png}
+\end{tabular}
+\end{figure}
+
 \end{document}

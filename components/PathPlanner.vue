@@ -1,12 +1,14 @@
 <template>
   <div id="floor-map">
-    <div class="text-h5">Floor Map</div>
+    <div class="text-h5">Path Planner</div>
     <p>Press `Shift` to set bike pose</p>
     <ul>
       <li>Move the mouse to change position</li>
-      <li>Use mouse wheel to change orientation</li>
+      <li>Use the mouse wheel to change orientation</li>
+      <!--li>Use the Shift-key (<v-icon>mdi-apple-keyboard-shift</v-icon>) to alter initial pose</li>
+      <li>Use the Alt-Key (<v-icon>mdi-apple-keyboard-option</v-icon>) to alter the final pose</li -->
     </ul>
-    <v-radio-group v-model="activePose" inline>
+    <v-radio-group v-model="activePose">
       <v-radio label="Configure initial pose" value="initial"></v-radio>
       <v-radio label="Configure final pose" value="final"></v-radio>
     </v-radio-group>
@@ -60,14 +62,21 @@ const arcToFinal = makeArc(1, 4, 90, "white");
 let doubleTurnPath = false;
 
 onMounted(() => {
-  visualScene.value?.add(intersectionSphere);
-  visualScene.value?.add(rotationPivotSphere);
-  visualScene.value?.add(transitionSphere);
-  visualScene.value?.add(transitionPipe);
   visualScene.value?.add(arcFromInitial);
-
+  visualScene.value?.add(arcToFinal);
+  visualScene.value?.add(intersectionSphere);
   visualScene.value?.add(rotationPivot2Sphere);
+  visualScene.value?.add(rotationPivotSphere);
+  visualScene.value?.add(transitionPipe);
+  visualScene.value?.add(transitionSphere);
   visualScene.value?.add(transitionSphere2);
+  intersectionSphere.position.z = -100;
+  rotationPivotSphere.position.z = -100;
+  transitionSphere.position.z = -100;
+  transitionPipe.position.z = -100;
+  arcFromInitial.position.z = -100;
+  rotationPivot2Sphere.position.z = -100;
+  transitionSphere2.position.z = -100;
 });
 
 watch(
@@ -83,17 +92,16 @@ watch(
       visualScene.value?.remove(arcFromInitial);
       visualScene.value?.remove(arcToFinal);
     } else {
-      visualScene.value?.add(initialMarker);
-      visualScene.value?.add(finalMarker);
-      visualScene.value?.add(transitionSphere);
-      visualScene.value?.add(rotationPivotSphere);
-      visualScene.value?.add(intersectionSphere);
       visualScene.value?.add(arcFromInitial);
-      if (doubleTurnPath) {
-        visualScene.value?.add(rotationPivot2Sphere);
-        visualScene.value?.add(arcToFinal);
-        visualScene.value?.add(rotationPivot2Sphere);
-      }
+      visualScene.value?.add(arcToFinal);
+      visualScene.value?.add(finalMarker);
+      visualScene.value?.add(initialMarker);
+      visualScene.value?.add(intersectionSphere);
+      visualScene.value?.add(rotationPivot2Sphere);
+      visualScene.value?.add(rotationPivot2Sphere);
+      visualScene.value?.add(rotationPivotSphere);
+      visualScene.value?.add(transitionSphere);
+      visualScene.value?.add(transitionSphere2);
     }
   }
 );
@@ -245,9 +253,10 @@ function doSingleTurn(
   intersectionToFinalDistance: number
 ) {
   doubleTurnPath = false;
-  // visualScene.value?.remove(rotationPivot2Sphere);
-  // visualScene.value?.remove(transitionSphere2);
-  visualScene.value?.remove(arcToFinal);
+  rotationPivot2Sphere.position.z = -100;
+  transitionSphere2.position.z = -100;
+  arcToFinal.position.z = -100
+  arcFromInitial.position.z = -100;
 
   let rotateAmount =
     startToIntersectionDistance < 0
@@ -316,10 +325,17 @@ function doDoubleArc(
   let outgoingRadius = initialPoint.Vee(E).Length;
   let distanceEC = finalPoint.Vee(E).Length;
   const distanceEP = P.Vee(E).Length;
-  debugText.value += ` EA:${outgoingRadius.toFixed(2)} EC:${distanceEC.toFixed(
-    2
-  )} EP:${distanceEP.toFixed(2)} `;
-  if (distanceEC > distanceEP) {
+  const headingDiff = withinPlusMinus180(
+    finalOrientation.value - initialOrientation.value
+  );
+
+  const isConverging = startToIntersectionDistance * headingDiff < 0;
+  debugText.value +=
+    (isConverging ? " converging" : " diverging") +
+    ` EA:${outgoingRadius.toFixed(2)} EC:${distanceEC.toFixed(
+      2
+    )} EP:${distanceEP.toFixed(2)} `;
+  if (isConverging && distanceEC > distanceEP) {
     // target point is ahead of the heading intersection
     debugText.value += `Does not require double arc, use single turn`;
     return false;
@@ -331,11 +347,6 @@ function doDoubleArc(
            < 0                   > 0      converging R-to-L
            < 0                   < 0      diverging R-to-L              
   */
-  const headingDiff = withinPlusMinus180(
-    finalOrientation.value - initialOrientation.value
-  );
-
-  const isConverging = startToIntersectionDistance * headingDiff < 0;
 
   if (
     (isConverging &&
@@ -355,6 +366,8 @@ function doDoubleArc(
 
   let modifiedOutgoingArcCenter = false;
   if (distanceEC < outgoingRadius) {
+    // Target is inside the outgoing circle,
+    // We will attempt to move the center of the circle
     let fractionDenom = 2;
     if (E.e12 < 0) {
       modifiedOutgoingArcCenter = true;
@@ -363,7 +376,8 @@ function doDoubleArc(
       E.e12 = 1;
     }
     let newE;
-    while (distanceEC < outgoingRadius) {
+    let relocationCount = 0;
+    while (distanceEC < outgoingRadius && relocationCount < 10) {
       // target is inside the outgoing circle, try to move the center of the outgoing
       // circle closer to target
       newE = PGA2D.Mul(1 / fractionDenom, E).Add(
@@ -372,13 +386,19 @@ function doDoubleArc(
       fractionDenom++;
       distanceEC = finalPoint.Vee(newE).Length;
       outgoingRadius = initialPoint.Vee(newE).Length;
+      relocationCount++;
     }
-    debugText.value += ` MODIFIED outgoing arc center`;
-    // Attempt to move the center of outgoing arc
-    rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
-    rotationPivot2Sphere.position.set(-newE.e02, newE.e01, 0);
+    if (relocationCount < 10) {
+      debugText.value += ` MODIFIED outgoing arc center`;
+      // Attempt to move the center of outgoing arc
+      rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
+      rotationPivot2Sphere.position.set(-newE.e02, newE.e01, 0);
 
-    E = newE;
+      E = newE;
+    } else {
+      debugText.value += ` Failed attempt to modify outgoing arc center`;
+      return false;
+    }
     // arcFromInitial.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
     // modifyTurningArc(arcFromInitial, outgoingRadius, 360)
     // return true;
@@ -482,12 +502,13 @@ function doDoubleArc(
       intersectionToFinalDistance > 0
         ? MathUtils.degToRad(-incomingArcLength + finalOrientation.value - 90)
         : MathUtils.degToRad(90 + finalOrientation.value);
-    visualScene.value?.add(arcToFinal);
+    // visualScene.value?.add(arcToFinal);
     modifyTurningArc(arcToFinal, distanceHC, incomingArcLength);
   } else {
     debugText.value += " cannot find incoming arc";
     arcFromInitial.position.z = -100;
     arcToFinal.position.z = -100;
+    return false;
   }
   return true;
 }
@@ -524,9 +545,9 @@ function doDoubleTurn(
   // debugText.value += ` TWO TURNS, heading diff ${headingDiff.toFixed(
   //   2
   // )}, bisector orientation ${bisectorOrientation.toFixed(2)}`;
-  visualScene.value?.add(rotationPivot2Sphere);
-  visualScene.value?.add(transitionSphere2);
-  visualScene.value?.add(arcToFinal);
+  // visualScene.value?.add(rotationPivot2Sphere);
+  // visualScene.value?.add(transitionSphere2);
+  // visualScene.value?.add(arcToFinal);
   const bisectorCtr = line1.Normalized.Add(line2.Normalized); // main bisector
   const bisectorLeft = line1.Normalized.Add(bisectorCtr.Normalized);
   const bisectorRight = bisectorCtr.Normalized.Add(line2.Normalized);
