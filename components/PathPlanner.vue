@@ -14,6 +14,8 @@
         the final pose
       </li>
     </ul>
+    <v-switch v-model="useDoubleArcs" label="Use Double Arcs"></v-switch>
+    <v-switch v-model="useSharperTurns" :disabled="!useDoubleArcs" label="Use Sharper Turns"></v-switch>
     <!--div>
       <v-btn
         @click="findBikePath"
@@ -52,6 +54,8 @@ const { visualScene, mousePositionOnGround, mouseWheelScrollAmount } =
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
+const useDoubleArcs = ref(false);
+const useSharperTurns = ref(false);
 const initialMarker = makeArrow(MARKER_LENGTH * 1.7, 4, "green");
 const finalMarker = makeArrow(MARKER_LENGTH, 4, "red");
 const initialMarkerShown = ref(false);
@@ -346,7 +350,7 @@ function doDoubleArc(
            > 0                   > 0      diverging L-to-R
            > 0                   < 0      converging L-to-R
            < 0                   > 0      converging R-to-L
-           < 0                   < 0      diverging R-to-L              
+           < 0                   < 0      diverging R-to-L
   */
 
   if (
@@ -369,38 +373,42 @@ function doDoubleArc(
   if (distanceEC < outgoingRadius) {
     // Target is inside the outgoing circle,
     // We will attempt to move the center of the circle
-    if (E.e12 < 0) {
-      modifiedOutgoingArcCenter = true;
-      E.e01 /= E.e12;
-      E.e02 /= E.e12;
-      E.e12 = 1;
-    }
-    let newE;
-    let fractionDenom = 2;
-    while (distanceEC < outgoingRadius && fractionDenom < 50) {
-      // target is inside the outgoing circle, try to move the center of the outgoing
-      // circle closer to target
-      newE = PGA2D.Mul(1 / fractionDenom, E).Add(
-        PGA2D.Mul(1 - 1 / fractionDenom, initialPoint)
-      );
-      fractionDenom++;
-      distanceEC = finalPoint.Vee(newE).Length;
-      outgoingRadius = initialPoint.Vee(newE).Length;
-    }
-    if (fractionDenom < 50) {
-      debugText.value += ` MODIFIED outgoing arc center`;
-      // Attempt to move the center of outgoing arc
-      rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
-      rotationPivot2Sphere.position.set(-newE.e02, newE.e01, 0);
+    if (useSharperTurns.value) {
+      if (E.e12 < 0) {
+        modifiedOutgoingArcCenter = true;
+        E.e01 /= E.e12;
+        E.e02 /= E.e12;
+        E.e12 = 1;
+      }
+      let newE;
+      let fractionDenom = 2;
+      while (distanceEC < outgoingRadius && fractionDenom < 50) {
+        // target is inside the outgoing circle, try to move the center of the outgoing
+        // circle closer to target
+        newE = PGA2D.Mul(1 / fractionDenom, E).Add(
+          PGA2D.Mul(1 - 1 / fractionDenom, initialPoint)
+        );
+        fractionDenom++;
+        distanceEC = finalPoint.Vee(newE).Length;
+        outgoingRadius = initialPoint.Vee(newE).Length;
+      }
+      if (fractionDenom < 50) {
+        debugText.value += ` MODIFIED outgoing arc center`;
+        // Attempt to move the center of outgoing arc
+        rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
+        rotationPivot2Sphere.position.set(-newE.e02, newE.e01, 0);
 
-      E = newE;
-    } else {
-      debugText.value += ` Failed attempt to modify outgoing arc center`;
+        E = newE;
+      } else {
+        debugText.value += ` Failed attempt to use sharper arcs`;
+        return false;
+      }
+    }
+    else {
+      console.debug("Target is too close to shart, and sharper turns are not allowed")
+      debugText.value += ` Cannot use double arc`;
       return false;
     }
-  // } else {
-  //   debugText.value += ` Cannot use double arc`;
-  //   return false;
   }
 
   // console.debug("Attempt to move E halfway ", parsePoint("start", initialPoint),
@@ -673,25 +681,55 @@ function findBikePath() {
   const intersection = line1.Wedge(line2);
 
   // pathDistance.value = initialPoint.Vee(finalPoint).Length;
-  if (Math.abs(intersection.e12) > 1e-5) {
-    intersectionSphere.position.set(
-      -intersection.e02 / intersection.e12,
-      intersection.e01 / intersection.e12,
-      0
+  if (Math.abs(intersection.e12) < 1e-5) {
+    console.debug("Parallel line");
+    debugText.value = "Parallel lines";
+    return;
+  }
+  intersectionSphere.position.set(
+    -intersection.e02 / intersection.e12,
+    intersection.e01 / intersection.e12,
+    0
+  );
+  const initialToIntersection = initialPoint.Vee(intersection);
+  const intersectionToFinal = intersection.Vee(finalPoint);
+  const i2xDistance = initialToIntersection.Dot(initialDirection).e0;
+  let x2fDistance = intersectionToFinal.Dot(finalDirection).e0;
+  // const s2 = makeSphere(5, "cyan");
+  // s2.position.set(-finalPoint.e02, finalPoint.e01, 0);
+  // visualScene.value?.add(s2);
+  debugText.value =
+    ` I2X dist: ${i2xDistance.toFixed(2)}` +
+    ` X2F dist: ${x2fDistance.toFixed(2)}`;
+  if (i2xDistance * x2fDistance > 0) {
+    console.debug("Mozzi-Chasles Single Turn");
+    doSingleTurn(
+      initialPoint,
+      finalPoint,
+      line1,
+      line2,
+      i2xDistance,
+      x2fDistance
     );
-    const initialToIntersection = initialPoint.Vee(intersection);
-    const intersectionToFinal = intersection.Vee(finalPoint);
-    const i2xDistance = initialToIntersection.Dot(initialDirection).e0;
-    let x2fDistance = intersectionToFinal.Dot(finalDirection).e0;
-    // const s2 = makeSphere(5, "cyan");
-    // s2.position.set(-finalPoint.e02, finalPoint.e01, 0);
-    // visualScene.value?.add(s2);
-    debugText.value =
-      ` I2X dist: ${i2xDistance.toFixed(2)}` +
-      ` X2F dist: ${x2fDistance.toFixed(2)}`;
-    if (i2xDistance * x2fDistance > 0) {
-      console.debug("Mozzi-Chasles Single Turn");
-      doSingleTurn(
+  } else {
+    if (
+      useDoubleArcs.value &&
+      doDoubleArc(
+        initialPoint,
+        finalPoint,
+        line1,
+        line2,
+        i2xDistance,
+        x2fDistance
+      )
+    ) {
+      // If double arc is allowed and the path can be solved using double
+      // arc, then we are done
+      return;
+    } else {
+      // We will be here when either double arcs is not allowed,
+      // or attempt to use double arcs failed
+      doDoubleTurn(
         initialPoint,
         finalPoint,
         line1,
@@ -699,30 +737,7 @@ function findBikePath() {
         i2xDistance,
         x2fDistance
       );
-    } else {
-      if (
-        doDoubleArc(
-          initialPoint,
-          finalPoint,
-          line1,
-          line2,
-          i2xDistance,
-          x2fDistance
-        ) === false
-      ) {
-        doDoubleTurn(
-          initialPoint,
-          finalPoint,
-          line1,
-          line2,
-          i2xDistance,
-          x2fDistance
-        );
-      }
     }
-  } else {
-    console.debug("Parallel line");
-    debugText.value = "Parallel lines";
   }
 }
 </script>
