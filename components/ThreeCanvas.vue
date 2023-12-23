@@ -334,7 +334,7 @@ onMounted(async () => {
 });
 
 function trackMouseIn3D(ev: MouseEvent) {
-  if (!ev.shiftKey) return;
+  if (!ev.ctrlKey && !ev.altKey) return;
   mousePointerPosition.x = 2 * (ev.clientX / glcanvas.value!.clientWidth) - 1;
   mousePointerPosition.y = 1 - 2 * (ev.clientY / glcanvas.value!.clientHeight);
   // console.debug("Mouse on canvas", mousePointerPosition.x.toFixed(3), mousePointerPosition.y.toFixed(3))
@@ -343,16 +343,19 @@ function trackMouseIn3D(ev: MouseEvent) {
   if (what.length > 0) {
     mousePositionOnGround.value.copy(what[0].point);
   }
+  ev.preventDefault()
 }
 let wheelTimer: any = null;
 function trackWheel(ev: WheelEvent) {
-  if (!ev.shiftKey) return;
+  if (!ev.ctrlKey && !ev.altKey) return;
   mouseWheelScrollAmount.value = ev.deltaY;
   clearTimeout(wheelTimer);
   wheelTimer = setTimeout(() => {
     wheelTimer = null;
     mouseWheelScrollAmount.value = 0;
   }, 100);
+  ev.preventDefault()
+
 }
 onBeforeUnmount(() => {
   if (animationFrameHandle != null) cancelAnimationFrame(animationFrameHandle);

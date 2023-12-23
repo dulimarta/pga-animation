@@ -1,26 +1,29 @@
 <template>
   <div id="floor-map">
     <div class="text-h5">Path Planner</div>
-    <p>Press `Shift` to set bike pose</p>
+    <!-- <p>While holding the <v-icon>mdi-apple-keyboard-shift</v-icon> key</p> -->
     <ul>
       <li>Move the mouse to change position</li>
-      <li>Use the mouse wheel to change orientation</li>
-      <!--li>Use the Shift-key (<v-icon>mdi-apple-keyboard-shift</v-icon>) to alter initial pose</li>
-      <li>Use the Alt-Key (<v-icon>mdi-apple-keyboard-option</v-icon>) to alter the final pose</li -->
+      <li>Scroll the mouse wheel to change orientation</li>
+      <li>
+        Hold the Shift-key (<v-icon>mdi-apple-keyboard-shift</v-icon>) to alter
+        the initial pose
+      </li>
+      <li>
+        Hold the Alt-Key (<v-icon>mdi-apple-keyboard-option</v-icon>) to alter
+        the final pose
+      </li>
     </ul>
-    <v-radio-group v-model="activePose">
-      <v-radio label="Configure initial pose" value="initial"></v-radio>
-      <v-radio label="Configure final pose" value="final"></v-radio>
-    </v-radio-group>
-    <div>
+    <!--div>
       <v-btn
         @click="findBikePath"
         color="green"
         :disabled="!initialMarkerShown || !finalMarkerShown"
         >Find Path</v-btn
       >
-    </div>
+    </!--div-->
     <v-textarea label="Debugging output" v-model="debugText"></v-textarea>
+
     <ul>
       <li>Line 1 orientation: {{ initialOrientation.toFixed(3) }}</li>
       <li>Line 2 orientation: {{ finalOrientation.toFixed(3) }}</li>
@@ -33,6 +36,9 @@ import { storeToRefs } from "pinia";
 import { MathUtils, TorusGeometry, Vector3 } from "three";
 import { useVisualStore } from "~/store/visual-store";
 import Algebra from "ganja.js";
+import { useKeyModifier } from "@vueuse/core";
+const controlKey = useKeyModifier("Control", { events: ["mousemove"] });
+const altKey = useKeyModifier("Alt", { events: ["mousemove"] });
 
 const { makePoint, makeDirection } = usePGA2D();
 const MARKER_LENGTH = 50;
@@ -43,7 +49,6 @@ const { runMode, bodyPosition, bodyRotation } = storeToRefs(store);
 const { makeArrow, makeSphere, makePipe, makeArc } = visualStore;
 const { visualScene, mousePositionOnGround, mouseWheelScrollAmount } =
   storeToRefs(visualStore);
-const activePose: Ref<"initial" | "final"> = ref("initial");
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
@@ -62,6 +67,8 @@ const arcToFinal = makeArc(1, 4, 90, "white");
 let doubleTurnPath = false;
 
 onMounted(() => {
+  visualScene.value?.add(initialMarker);
+  visualScene.value?.add(finalMarker);
   visualScene.value?.add(arcFromInitial);
   visualScene.value?.add(arcToFinal);
   visualScene.value?.add(intersectionSphere);
@@ -70,6 +77,8 @@ onMounted(() => {
   visualScene.value?.add(transitionPipe);
   visualScene.value?.add(transitionSphere);
   visualScene.value?.add(transitionSphere2);
+  initialMarker.position.z = -100;
+  finalMarker.position.z = -100;
   intersectionSphere.position.z = -100;
   rotationPivotSphere.position.z = -100;
   transitionSphere.position.z = -100;
@@ -113,8 +122,8 @@ function withinPlusMinus180(x: number): number {
 }
 
 function within360(x: number) {
-  if (x > 360) return x - 360;
-  if (x < 0) return x + 360;
+  while (x > 360) x -= 360;
+  while (x < 0) x += 360;
   return x;
 }
 
@@ -122,43 +131,37 @@ let lastMouseWheelScrollAmount = 0;
 watch(
   [() => mousePositionOnGround.value, () => mouseWheelScrollAmount.value],
   ([pos, wheel]: [Vector3, number]) => {
-    checkMarkersVisibility();
     const wheelScrollAmount =
       0.9 * lastMouseWheelScrollAmount + (0.1 * wheel) / 5;
+    // console.debug(
+    //   `"Mouse at (${pos.x.toFixed(1)},${pos.y.toFixed(
+    //     1
+    //   )}) wheel ${wheelScrollAmount} Ctrl:${controlKey.value} Alt:${
+    //     altKey.value
+    //   }`
+    // );
     lastMouseWheelScrollAmount = wheel;
-    if (activePose.value === "initial") {
+    if (controlKey.value) {
+      initialMarkerShown.value = true;
       initialOrientation.value += wheelScrollAmount;
       initialOrientation.value = within360(initialOrientation.value);
       initialMarker.position.copy(pos);
       initialMarker.rotation.z = MathUtils.degToRad(initialOrientation.value);
       bodyPosition.value.set(pos.x, pos.y);
       bodyRotation.value = -initialMarker.rotation.z;
-    } else {
+    } else if (altKey.value) {
+      finalMarkerShown.value = true;
       finalOrientation.value += wheelScrollAmount;
       finalOrientation.value = within360(finalOrientation.value);
       finalMarker.position.copy(pos);
       finalMarker.rotation.z = MathUtils.degToRad(finalOrientation.value);
     }
+    if (initialMarkerShown.value && finalMarkerShown.value) {
+      findBikePath();
+    }
   },
   { deep: true }
 );
-
-function checkMarkersVisibility() {
-  if (activePose.value === "initial") {
-    if (!initialMarkerShown.value) {
-      visualScene.value?.add(initialMarker);
-      initialMarkerShown.value = true;
-    }
-  } else {
-    if (!finalMarkerShown.value) {
-      visualScene.value?.add(finalMarker);
-      finalMarkerShown.value = true;
-    }
-  }
-  if (initialMarkerShown.value && finalMarkerShown.value) {
-    findBikePath();
-  }
-}
 
 function parseLine(text: string, L: any): string {
   return `${text}: ${L.e1.toFixed(2)}X ${L.e2.toFixed(2)}Y + ${L.e0.toFixed(
@@ -255,7 +258,7 @@ function doSingleTurn(
   doubleTurnPath = false;
   rotationPivot2Sphere.position.z = -100;
   transitionSphere2.position.z = -100;
-  arcToFinal.position.z = -100
+  arcToFinal.position.z = -100;
   arcFromInitial.position.z = -100;
 
   let rotateAmount =
@@ -263,8 +266,6 @@ function doSingleTurn(
       ? finalOrientation.value - initialOrientation.value
       : 360 - finalOrientation.value + initialOrientation.value;
   rotateAmount = within360(rotateAmount);
-  // while (rotateAmount > 360) rotateAmount -= 360;
-  // while (rotateAmount < 0) rotateAmount += 360;
   const bisector = line1.Normalized.Sub(line2.Normalized);
   debugText.value += " ONE TURN only---";
   let pivotOfRotation, radiusOfRotation;
@@ -368,7 +369,6 @@ function doDoubleArc(
   if (distanceEC < outgoingRadius) {
     // Target is inside the outgoing circle,
     // We will attempt to move the center of the circle
-    let fractionDenom = 2;
     if (E.e12 < 0) {
       modifiedOutgoingArcCenter = true;
       E.e01 /= E.e12;
@@ -376,8 +376,8 @@ function doDoubleArc(
       E.e12 = 1;
     }
     let newE;
-    let relocationCount = 0;
-    while (distanceEC < outgoingRadius && relocationCount < 10) {
+    let fractionDenom = 2;
+    while (distanceEC < outgoingRadius && fractionDenom < 50) {
       // target is inside the outgoing circle, try to move the center of the outgoing
       // circle closer to target
       newE = PGA2D.Mul(1 / fractionDenom, E).Add(
@@ -386,9 +386,8 @@ function doDoubleArc(
       fractionDenom++;
       distanceEC = finalPoint.Vee(newE).Length;
       outgoingRadius = initialPoint.Vee(newE).Length;
-      relocationCount++;
     }
-    if (relocationCount < 10) {
+    if (fractionDenom < 50) {
       debugText.value += ` MODIFIED outgoing arc center`;
       // Attempt to move the center of outgoing arc
       rotationPivotSphere.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
@@ -399,9 +398,9 @@ function doDoubleArc(
       debugText.value += ` Failed attempt to modify outgoing arc center`;
       return false;
     }
-    // arcFromInitial.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
-    // modifyTurningArc(arcFromInitial, outgoingRadius, 360)
-    // return true;
+  // } else {
+  //   debugText.value += ` Cannot use double arc`;
+  //   return false;
   }
 
   // console.debug("Attempt to move E halfway ", parsePoint("start", initialPoint),
@@ -450,6 +449,7 @@ function doDoubleArc(
     H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
     const distanceHE = H.Vee(E).Length;
     distanceHC = H.Vee(finalPoint).Length;
+
     // console.debug(
     //   ` |HC| = ${distanceHC.toFixed(3)}, |EA| = ${outgoingRadius.toFixed(
     //     3
@@ -538,9 +538,9 @@ function doDoubleTurn(
   const cb = Math.cos(MathUtils.degToRad(bisectorOrientation));
   const sb = Math.sin(MathUtils.degToRad(bisectorOrientation));
   if (ci * cb + si * sb < 0 || cf * cb + sf * sb < 0) {
-    debugText.value += ` Flip bisector from ${bisectorOrientation}`;
+    debugText.value += ` Flip bisector from ${bisectorOrientation.toFixed(2)}`;
     bisectorOrientation = (bisectorOrientation + 180) % 360;
-    debugText.value += ` to ${bisectorOrientation}`;
+    debugText.value += ` to ${bisectorOrientation.toFixed(2)}`;
   }
   // debugText.value += ` TWO TURNS, heading diff ${headingDiff.toFixed(
   //   2
@@ -639,8 +639,7 @@ function doDoubleTurn(
       ? finalOrientation.value - bisectorOrientation + 180
       : bisectorOrientation - finalOrientation.value + 180;
 
-  while (incomingRotationArcLength < 0) incomingRotationArcLength += 360;
-  while (incomingRotationArcLength > 360) incomingRotationArcLength -= 360;
+  incomingRotationArcLength = within360(incomingRotationArcLength);
 
   modifyTurningArc(
     arcToFinal,
@@ -691,6 +690,7 @@ function findBikePath() {
       ` I2X dist: ${i2xDistance.toFixed(2)}` +
       ` X2F dist: ${x2fDistance.toFixed(2)}`;
     if (i2xDistance * x2fDistance > 0) {
+      console.debug("Mozzi-Chasles Single Turn");
       doSingleTurn(
         initialPoint,
         finalPoint,
@@ -721,6 +721,7 @@ function findBikePath() {
       }
     }
   } else {
+    console.debug("Parallel line");
     debugText.value = "Parallel lines";
   }
 }
