@@ -11,8 +11,33 @@ import {
 const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
 // console.debug("In composable", PGA3D);
-interface GAElement {
+export interface GAElement {
+  Dot(_: GAElement): GAElement
+  Sub(_:GAElement): GAElement
+  Add(_:GAElement): GAElement
   Vee(_: GAElement): GAElement;
+  Wedge(_: GAElement): GAElement;
+  Mul(_: GAElement): GAElement
+  get Dual(): GAElement
+  get Normalized(): GAElement
+  get Reverse(): GAElement
+  get Length(): number
+  get VLength(): number // infinity norm/vanishing norm
+  get e0(): number
+  get e1(): number
+  get e2(): number
+  get e3(): number
+  get e01(): number
+  get e12(): number
+  get e13(): number
+  get e23(): number
+  get e012(): number
+  get e013(): number
+  get e023(): number
+  set e01(_:number)
+  set e02(_:number)
+  set e03(_:number)
+  set e12(_: number)
 }
 
 export function usePGA2D() {
@@ -30,20 +55,20 @@ export function usePGA2D() {
 export function usePGA3D() {
   const ORIGIN = makePoint(0, 0, 0);
 
-  function makePoint(x: number, y: number, z: number) {
+  function makePoint(x: number, y: number, z: number):GAElement {
     const p = new PGA3D().nVector(1, 1, x, y, z).Dual;
     // console.debug("Make point", PGA3D.describe())
     // console.debug(`3D point (${x},${y},${z})`, p.toString(), p);
     return p;
   }
 
-  function makeDirection(dx: number, dy: number, dz: number) {
+  function makeDirection(dx: number, dy: number, dz: number):GAElement {
     const p = new PGA3D().nVector(1, 0, dx, dy, dz).Dual;
     // console.debug(`3D direction (${dx},${dy},${dz})`, p.toString(), p);
     return p;
   }
 
-  function makeRotor(axis: any, angleInRadiansOrDistance: number): any {
+  function makeRotor(axis: GAElement, angleInRadiansOrDistance: number): GAElement {
     const out = PGA3D.Mul(angleInRadiansOrDistance / 2, axis).Exp();
     // console.debug("Incoming axis", axis, out)
     return out;
@@ -54,7 +79,7 @@ export function usePGA3D() {
     ny: number,
     nz: number,
     distanceToOrig: number
-  ) {
+  ):GAElement {
     const p = new PGA3D().nVector(1, distanceToOrig, nx, ny, nz);
     // console.debug(
     //   `Plane ${nx}x + ${ny}y + ${nz}x + ${distanceToOrig} ==> `,
@@ -62,14 +87,14 @@ export function usePGA3D() {
     // );
     return p;
   }
-  function parsePGAPoint(text: string, pointEl: any) {
+  function parsePGAPoint(text: string, pointEl: GAElement) {
     const px = -pointEl.e023
     const py = pointEl.e013
     const pz = -pointEl.e012
     console.debug(text, `a point at (${px.toFixed(2)},${py.toFixed(2)},${pz.toFixed(2)})`, "Raw point", pointEl.toString())    
   }
 
-  function parsePGALine(text: string, lineEl: any) {
+  function parsePGALine(text: string, lineEl: GAElement) {
     // Lines are represented using Plucker 6-dim homogeneous coordinates
     // (moment_x, moment_y, moment_z; dir_x, dir_y, dir_z)
     // such that the moment vector is perpendicular to the direction vector
@@ -103,28 +128,24 @@ export function usePGA3D() {
     }
   }
 
-  function parsePGAPlane(text: string, elem: any) {
+  function parsePGAPlane(text: string, elem: GAElement) {
     console.debug(
-      `${text} a plane with normal (${elem[2].toFixed(2)},${elem[3].toFixed(
+      `${text} a plane with normal (${elem.e1.toFixed(2)},${elem.e2.toFixed(
         2
-      )},${elem[4].toFixed(2)}) distance to origin ${elem[1].toFixed(2)}`
+      )},${elem.e3.toFixed(2)}) distance to origin ${elem.e0.toFixed(2)}`
     );
   }
 
-  function isProperLine(elem: any): boolean {
-    const thru_x = elem[10];
-    const thru_y = -elem[9];
-    const thru_z = elem[8];
-    return (
-      Math.abs(thru_x) > 1e-5 ||
-      Math.abs(thru_y) > 1e-5 ||
-      Math.abs(thru_z) > 1e-5
-    );
-  }
-
-  function render(scene: Scene, elem: typeof PGA3D) {
-    console.debug("Rendering input", elem, elem.toString());
-  }
+  // function isProperLine(elem: GAElement): boolean {
+  //   const thru_x = elem[10];
+  //   const thru_y = -elem[9];
+  //   const thru_z = elem[8];
+  //   return (
+  //     Math.abs(thru_x) > 1e-5 ||
+  //     Math.abs(thru_y) > 1e-5 ||
+  //     Math.abs(thru_z) > 1e-5
+  //   );
+  // }
 
   function gradedRender(scene: Scene, elem: typeof PGA3D) {
     // When the Algebra is graded, multivectors are stored in different

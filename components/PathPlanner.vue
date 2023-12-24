@@ -35,10 +35,11 @@
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
-import { MathUtils, TorusGeometry, Vector3 } from "three";
+import { MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
 import { useVisualStore } from "~/store/visual-store";
 import Algebra from "ganja.js";
 import { useKeyModifier } from "@vueuse/core";
+import { GAElement } from "~/composables/pga";
 const controlKey = useKeyModifier("Control", { events: ["mousemove"] });
 const altKey = useKeyModifier("Alt", { events: ["mousemove"] });
 
@@ -168,24 +169,24 @@ watch(
   { deep: true }
 );
 
-function parseLine(text: string, L: any): string {
+function parseLine(text: string, L: GAElement): string {
   return `${text}: ${L.e1.toFixed(2)}X ${L.e2.toFixed(2)}Y + ${L.e0.toFixed(
     2
   )}`;
 }
-function parsePoint(text: string, P: any): string {
+function parsePoint(text: string, P: GAElement): string {
   return `${text}: (${-P.e02.toFixed(2)},${P.e01.toFixed(2)} Scale = ${
     P.e12
   }})`;
 }
 
 function rotateThenTranslate(
-  initialPoint: any,
-  finalPoint: any,
-  line1: any,
-  line2: any,
-  bisector: any
-): [any, number] {
+  initialPoint: GAElement,
+  finalPoint: GAElement,
+  line1: GAElement,
+  line2: GAElement,
+  bisector: GAElement
+): [GAElement, number] {
   const iPerp = line1.Dot(initialPoint); // Perpendicular from initial point
   const pivotOfRot = bisector.Wedge(iPerp).Normalized; // intersect the perpendicular with the angle bisector
   const fPerp = line2.Dot(pivotOfRot); // perpendicular to final point
@@ -215,12 +216,12 @@ function rotateThenTranslate(
 }
 
 function translateThenRotate(
-  initialPoint: any,
-  finalPoint: any,
-  line1: any,
-  line2: any,
-  bisector: any
-): [any, number] {
+  initialPoint: GAElement,
+  finalPoint: GAElement,
+  line1: GAElement,
+  line2: GAElement,
+  bisector: GAElement
+): [GAElement, number] {
   const fPerp = line2.Dot(finalPoint); // Perpendicular from the final point
   const pivot = bisector.Wedge(fPerp).Normalized; // intersect the perpendicular with the angle bisector
   const iPerp = line1.Dot(pivot); // Perpendicular to the initial point
@@ -240,7 +241,7 @@ function translateThenRotate(
   return [pivot, turnRad];
 }
 
-function modifyTurningArc(arc: any, radius: number, arcLengthDegree: number) {
+function modifyTurningArc(arc: Mesh, radius: number, arcLengthDegree: number) {
   arc.geometry.dispose();
   const geo = new TorusGeometry(
     radius,
@@ -253,10 +254,10 @@ function modifyTurningArc(arc: any, radius: number, arcLengthDegree: number) {
 }
 
 function doSingleTurn(
-  initialPoint: any,
-  finalPoint: any,
-  line1: any,
-  line2: any,
+  initialPoint: GAElement,
+  finalPoint: GAElement,
+  line1: GAElement,
+  line2: GAElement,
   startToIntersectionDistance: number,
   intersectionToFinalDistance: number
 ) {
@@ -317,10 +318,10 @@ function doSingleTurn(
 }
 
 function doDoubleArc(
-  initialPoint: any,
-  finalPoint: any,
-  line1: any,
-  line2: any,
+  initialPoint: GAElement,
+  finalPoint: GAElement,
+  line1: GAElement,
+  line2: GAElement,
   startToIntersectionDistance: number,
   intersectionToFinalDistance: number
 ) {
@@ -523,10 +524,10 @@ function doDoubleArc(
 }
 
 function doDoubleTurn(
-  initialPoint: any,
-  finalPoint: any,
-  line1: any,
-  line2: any,
+  initialPoint: GAElement,
+  finalPoint: GAElement,
+  line1: GAElement,
+  line2: GAElement,
   startToIntersectionDistance: number,
   intersectionToFinalDistance: number
 ) {

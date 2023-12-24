@@ -35,6 +35,7 @@ import { usePGAStore } from "~/store/pga-store";
 import { useVisualStore } from "~/store/visual-store";
 import { storeToRefs } from "pinia";
 import { useWindowSize } from "@vueuse/core";
+import {GAElement} from "~/composables/pga"
 
 const {
   makePoint,
@@ -363,7 +364,7 @@ onBeforeUnmount(() => {
   glcanvas.value?.removeEventListener("wheel", trackWheel);
 });
 
-function makeAuxPlane(pgaPlane: any, color?: number): [Plane, PlaneHelper] {
+function makeAuxPlane(pgaPlane: GAElement, color?: number): [Plane, PlaneHelper] {
   const p = new Plane(
     new Vector3(pgaPlane.e1, pgaPlane.e2, pgaPlane.e3),
     pgaPlane.e0
