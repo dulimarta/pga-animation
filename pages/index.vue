@@ -4,7 +4,7 @@
     <div class="flex-child">
       <v-tabs v-model="currentTab" @update:modelValue="setRunMode">
         <v-tab>Run</v-tab>
-        <v-tab>Path Planner</v-tab>
+        <v-tab :disabled="bikeInMotion">Path Planner</v-tab>
       </v-tabs>
       <v-window v-model="currentTab" >
         <v-window-item>
@@ -26,7 +26,7 @@
 import { storeToRefs } from "pinia";
 import { usePGAStore } from "~/store/pga-store";
 const store = usePGAStore();
-const { bodyPosition, runMode } = storeToRefs(store);
+const { bodyPosition, runMode, bikeInMotion } = storeToRefs(store);
 const currentTab = ref(0);
 
 function setRunMode() {

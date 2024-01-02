@@ -31,6 +31,8 @@
       <li>Line 2 orientation: {{ finalOrientation.toFixed(3) }}</li>
     </ul>
   </div>
+  <!-- Snackbar timeout:-1 to keep it shown indefinitely -->
+  <v-snackbar absolute v-model="parallelWarning" :timeout="-1" color="red-accent-4">Start and target positions are parallel</v-snackbar>
 </template>
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
@@ -58,6 +60,7 @@ const initialOrientation = ref(0);
 const finalOrientation = ref(0);
 const useDoubleArcs = ref(false);
 const useSharperTurns = ref(false);
+const parallelWarning = ref(false)
 const initialMarker = makeArrow(MARKER_LENGTH * 1.7, 4, "green");
 const finalMarker = makeArrow(MARKER_LENGTH, 4, "red");
 const initialMarkerShown = ref(false);
@@ -70,7 +73,6 @@ const transitionSphere2 = makeSphere(8, "white");
 const transitionPipe = makePipe(1, PATH_THICKNESS, "white");
 const arcFromInitial = makeArc(1, PATH_THICKNESS, 90, "white");
 const arcToFinal = makeArc(1, PATH_THICKNESS, 90, "white");
-let doubleTurnPath = false;
 
 onMounted(() => {
   visualScene.value?.add(initialMarker);
@@ -117,9 +119,14 @@ watch(
       visualScene.value?.add(rotationPivotSphere);
       visualScene.value?.add(transitionSphere);
       visualScene.value?.add(transitionSphere2);
+      initialMarker.rotation.z = -bodyRotation.value
     }
   }
 );
+
+watch([() => useDoubleArcs.value, () => useSharperTurns.value], ([doubleArc, sharperTurn]: [boolean, boolean]) => {
+  findBikePath()  
+})
 
 function withinPlusMinus180(x: number): number {
   while (x > 180) x -= 360;
@@ -261,7 +268,6 @@ function doSingleTurn(
   startToIntersectionDistance: number,
   intersectionToFinalDistance: number
 ) {
-  doubleTurnPath = false;
   rotationPivot2Sphere.position.z = -100;
   transitionSphere2.position.z = -100;
   arcToFinal.position.z = -100;
@@ -372,6 +378,7 @@ function doDoubleArc(
   }
 
   let modifiedOutgoingArcCenter = false;
+  console.debug(`doDoubleArc() |EC|=${distanceEC.toFixed(2)}, out going radius ${outgoingRadius}`)
   if (distanceEC < outgoingRadius) {
     // Target is inside the outgoing circle,
     // We will attempt to move the center of the circle
@@ -407,7 +414,7 @@ function doDoubleArc(
       }
     }
     else {
-      console.debug("Target is too close to shart, and sharper turns are not allowed")
+      console.debug("Target is too close to start, and sharper turns are not allowed")
       debugText.value += ` Cannot use double arc`;
       return false;
     }
@@ -454,7 +461,7 @@ function doDoubleArc(
     E.e02 *= -1;
     E.e12 *= -1;
   }
-  while (lowAlpha < hiAlpha && !arcCenterFound && count < 100) {
+  while (lowAlpha < hiAlpha && !arcCenterFound && count < 200) {
     alpha = (lowAlpha + hiAlpha) / 2;
     H = PGA2D.Mul(1 - alpha, M).Add(PGA2D.Mul(alpha, finalPoint));
     const distanceHE = H.Vee(E).Length;
@@ -501,6 +508,7 @@ function doDoubleArc(
     rotationPivot2Sphere.position.set(-H.e02 / H.e12, H.e01 / H.e12, 0);
     transitionPipe.position.z = -100;
     transitionSphere.position.z = -100;
+    transitionSphere2.position.z = -100
     arcFromInitial.position.set(-E.e02 / E.e12, E.e01 / E.e12, 0);
     arcFromInitial.rotation.z =
       startToIntersectionDistance < 0
@@ -515,7 +523,7 @@ function doDoubleArc(
     // visualScene.value?.add(arcToFinal);
     modifyTurningArc(arcToFinal, distanceHC, incomingArcLength);
   } else {
-    debugText.value += " cannot find incoming arc";
+    debugText.value += " cannot find incoming arc after 200 iterations";
     arcFromInitial.position.z = -100;
     arcToFinal.position.z = -100;
     return false;
@@ -531,7 +539,6 @@ function doDoubleTurn(
   startToIntersectionDistance: number,
   intersectionToFinalDistance: number
 ) {
-  doubleTurnPath = true;
   const headingDiff = withinPlusMinus180(
     finalOrientation.value - initialOrientation.value
   );
@@ -686,8 +693,10 @@ function findBikePath() {
   if (Math.abs(intersection.e12) < 1e-5) {
     console.debug("Parallel line");
     debugText.value = "Parallel lines";
+    parallelWarning.value = true
     return;
   }
+  parallelWarning.value = false
   intersectionSphere.position.set(
     -intersection.e02 / intersection.e12,
     intersection.e01 / intersection.e12,

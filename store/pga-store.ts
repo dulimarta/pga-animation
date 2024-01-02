@@ -8,8 +8,9 @@ export const usePGAStore = defineStore('pga', () => {
   const bodyPosition: Ref<Vector2> = ref(new Vector2())
   const brakeApplied = ref(false)
   const showGeometry = ref(true)
+  const bikeInMotion = ref(false)
   const runMode: Ref<"plan"|"run"> = ref("run")
 
   // const floorInputPosition: Ref<Vector2> = ref(new Vector2())
-  return {driveWheelTorque, steerVelocity, bodyPosition, bodyRotation, brakeApplied, showGeometry, runMode}
+  return {driveWheelTorque, steerVelocity, bodyPosition, bodyRotation, bikeInMotion, brakeApplied, showGeometry, runMode}
 })
