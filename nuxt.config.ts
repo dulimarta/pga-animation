@@ -23,6 +23,15 @@ export default defineNuxtConfig({
   },
   modules: ["@pinia/nuxt"],
   ssr: false,
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        noImplicitAny: true,
+        strict: true
+      }
+    
+    }
+  }
   // vite: {
   //   define: {
   //     'process.env.DEBUG': false,
