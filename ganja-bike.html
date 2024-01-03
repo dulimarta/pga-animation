@@ -29,11 +29,11 @@
       >
       <input
         type="range"
-        min="-60"
-        max="60"
+        min="-5"
+        max="5"
         value="0"
-        step="1"
-        id="body"
+        step="0.001"
+        id="time"
       >
     </div>
     <div id="ganja-graph"></div>
@@ -41,7 +41,7 @@
   <script>
     // const PGA2D = Algebra(3,0,1);
     Algebra({ p: 3, q: 0, r: 1 }, () => {
-      // console.debug(this.describe())
+      console.debug(this.describe())
       const makePlane = (a, b, c, d) => (a * 1e1 + b * 1e2 + c * 1e3 + d * 1e0).Normalized
       const makePoint = (x, y, z) => !(1e0 + x * 1e1 + y * 1e2 + z * 1e3)
       const makeDirection = (dx, dy, dz) => !(dx * 1e1 + dy * 1e2 + dz * 1e3).Normalized
@@ -60,68 +60,81 @@
         return pNorm
       }
 
+      function motorToString(m) {
+        return `Scalar ${m[0].toFixed(3)}` + ` Ideal (${m.e01.toFixed(3)},${m.e02.toFixed(3)},${m.e03.toFixed(3)})` +
+          ` Bivec (${m.e23.toFixed(3)},${m.e13.toFixed(3)},${m.e12.toFixed(3)})`
+      }
       const origin = makePoint(0, 0, 0)
       const sideDirection = makeDirection(0, 0, 1)
-      let rearPlane = makePlane(1, 0, 0, 0)
-      let rearHub = makePoint(0, -0.5, 0)
-      const frontHub = () => {
-        const disp = this.Mul(normalOfPlane(rearPlane), 0.75)
-        // console.debug("Disp to Front hub", disp.Dual)
-        // Must add the dual because the normal of 3D plane is a 1-vector
-        // but Euclidean directions are 3-vectors
-        const fh = rearHub.Add(disp.Dual)
-        // console.debug("Front hub", fh)
-        return fh
-      }
+      const groundPlane = makePlane(0,1,0,1)
+      // let rearPlane = makePlane(1, 0, 0, 0)
+      let rearHub = makePoint(0, -1, 0)
+      let frontHub = makePoint(0.75, -1, 0.4)
+      const hubJoin = rearHub.Vee(frontHub).Normalized
+      const rearPlane = hubJoin.Dot(rearHub)
+      const frontPlane = hubJoin.Dot(frontHub)
+
+      // const frontHub = () => {
+      //   const disp = this.Mul(normalOfPlane(rearPlane), 0.75)
+      //   // console.debug("Disp to Front hub", disp.Dual)
+      //   // Must add the dual because the normal of 3D plane is a 1-vector
+      //   // but Euclidean directions are 3-vectors
+      //   const fh = rearHub.Add(disp.Dual)
+      //   // console.debug("Front hub", fh)
+      //   return fh
+      // }
       console.debug("Normal of ", rearPlane, "is", normalOfPlane(rearPlane))
       // console.debug("Front hub is ", frontHub())
       const upDirection = makeDirection(0, 1, 0)
-      const steerAxis = () => frontHub().Vee(upDirection)
-      let frontPlane = makePlane(1, 0, 0, -0.75)
+      const steerAxis = frontHub.Vee(upDirection)
       let rigidRotationAxis = frontPlane.Wedge(rearPlane)
+      let bodyMotor = 1e0123.Dual
+      let steerMotor = 1e0123.Dual
 
-      let frontAxle = frontHub().Vee(sideDirection)
+      // let frontAxle = frontHub.Vee(sideDirection)
       // const aLine = A.Vee(xDir)
       let steerAngle = 0
-      let rigidRotation = 0
+      let prevTime = 0
       const rotor = (x) => {
         const r = makeMotor(aLine, x)
         // console.debug("New rotor", r.toString() )
         return r
       }
       document.getElementById("steer").addEventListener('input', (ev) => {
-        console.debug("Slider change", ev.target.value)
         const delta = ev.target.value - steerAngle
-        const steerRotor = makeMotor(steerAxis(), -delta * Math.PI / 180)
-        frontPlane = steerRotor >>> frontPlane
-        frontAxle = steerRotor >>> frontAxle
-        rigidRotationAxis = frontPlane.Wedge(rearPlane)
+        const deltaRotor = makeMotor(steerAxis, -delta * Math.PI / 180)
+        steerMotor = deltaRotor.Mul(steerMotor)
+        // console.debug("Slider change", ev.target.value, "delta motor", deltaRotor, "steer motor", steerMotor)
+        rigidRotationAxis = (steerMotor >>> frontPlane).Wedge(rearPlane)
         steerAngle = ev.target.value
-        // rotor = makeMotor(aLine, rotationAngle)
       })
-      document.getElementById("body").addEventListener('input', (ev) => {
+      document.getElementById("time").addEventListener('input', (ev) => {
         // console.debug("Slider change", ev.target.value)
-        const delta = ev.target.value - rigidRotation
-        const bodyRotor = makeMotor(rigidRotationAxis, -delta * Math.PI / 180)
-        rearPlane = bodyRotor.Mul(rearPlane).Mul(bodyRotor.Reverse)
-        frontPlane = bodyRotor.Mul(frontPlane).Mul(bodyRotor.Reverse)
-        // frontHub = bodyRotor >>> frontHub
-        // rearPlane = bodyRotor >>> rearPlane
-        rearHub = bodyRotor >>> rearHub
-        frontAxle = bodyRotor >>> frontAxle
-        rigidRotation = ev.target.value
+        const delta = ev.target.value - prevTime
+        const deltaMotor = makeMotor(rigidRotationAxis, -delta)
+        bodyMotor = bodyMotor.Mul(deltaMotor) //.Mul(deltaMotor.Reverse)
+        prevTime = ev.target.value
       })
       document.getElementById("ganja-graph").appendChild(this.graph(() => {
         // const rotatedFrontPlane = rotor.Mul(frontPlane).Mul(rotor.Reverse)
         // const rotatedFrontAxle = rotor.Mul(frontAxle).Mul(rotor.Reverse)
-        return [`Bike Model. Steer ${steerAngle} degrees. Body rotation ${rigidRotation} degrees`, //+ rigidRotationCenter.toString(),
-          rearHub, "R", frontHub(), "F",
+        const rh = bodyMotor >>> rearHub
+        const fh = bodyMotor >>> frontHub
+        const rp = bodyMotor >>> rearPlane
+        const fp = bodyMotor >>> (steerMotor >>> frontPlane)
+        // const fa = bodyMotor >>> (steerMotor >>> frontAxle)
+        const rotationCtr = fp.Wedge(rp).Wedge(groundPlane)
+        return [`Bike Motor ${motorToString(bodyMotor)}. Steer ${steerAngle} degrees. Time ${prevTime}`, //+ rigidRotationCenter.toString(),
+          rh, "R", 
+          0xcccccc, groundPlane,
+          0xff6600, fh, "F",
           // rearPlane,
-        [rearHub, frontHub()],
-          0xFF0000, frontAxle,
-          // 0xFF00FF, frontPlane,
-          0x008800, frontAxle.Wedge(rearPlane),
-          0x0000ff, steerAngle ? rigidRotationAxis : ""
+          0x000000, [rh, fh],
+          // 0x00ff00, fa,
+          // 0xFF00FF, fp,
+          // 0x0000ff, rp.Normalized,
+          0x008800, rotationCtr,
+          0xffff0077, steerAngle !== 0 ? [rotationCtr,fh,rh]: []
         ]
       },
         { grid: true, labels: true, lineWidth: 3, h: 1.8, p: -0.1, animate: true, width: 800 }))

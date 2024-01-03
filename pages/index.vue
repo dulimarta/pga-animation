@@ -8,12 +8,12 @@
       </v-tabs>
       <v-window v-model="currentTab" >
         <v-window-item>
-          <InputControl />
-          <XYPlot
+          <InputControl/>
+          <!--XYPlot
             :x-value="bodyPosition.x"
             :y-value="bodyPosition.y"
             title="XY Position"
-          />
+          /-->
         </v-window-item>
         <v-window-item>
           <PathPlanner />

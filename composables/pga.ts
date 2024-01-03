@@ -203,7 +203,6 @@ export function usePGA3D() {
         // const steeringPlaneMat = new MeshStandardMaterial({ color: 0x00ff00 })
         scene.add(planeHelper);
         return planeHelper;
-        break;
       case 2: // Line
         const direction = elems.slice(3, 7);
         // When the sparse array contains "empty" elements,
