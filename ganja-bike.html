@@ -9,7 +9,7 @@
 
     #ganja-graph {
       width: 500px;
-       border: 1px solid red;
+      border: 1px solid red;
     }
   </style>
   <script src="https://unpkg.com/ganja.js"></script>
@@ -61,15 +61,17 @@
       }
 
       function motorToString(m) {
-        return `Scalar ${m[0].toFixed(3)}` + ` Ideal (${m.e01.toFixed(3)},${m.e02.toFixed(3)},${m.e03.toFixed(3)})` +
-          ` Bivec (${m.e23.toFixed(3)},${m.e13.toFixed(3)},${m.e12.toFixed(3)})`
+        return `Scalar ${m[0].toFixed(3)}` + ` Trans (${m.e01.toFixed(3)},${m.e02.toFixed(3)},${m.e03.toFixed(3)})` +
+          ` Rot (${m.e23.toFixed(3)},${m.e13.toFixed(3)},${m.e12.toFixed(3)})`
       }
       const origin = makePoint(0, 0, 0)
       const sideDirection = makeDirection(0, 0, 1)
-      const groundPlane = makePlane(0,1,0,1)
+      const groundPlane = makePlane(0, 1, 0, 1)
       // let rearPlane = makePlane(1, 0, 0, 0)
-      let rearHub = makePoint(0, -1, 0)
-      let frontHub = makePoint(0.75, -1, 0.4)
+      let rearHub = makePoint(-0.8, -1, 0)
+      let frontHub = makePoint(-0.3, -1, 0)
+      const XY = makePoint(1, 1, 0)
+      const XZ = makePoint(1, 0, 1)
       const hubJoin = rearHub.Vee(frontHub).Normalized
       const rearPlane = hubJoin.Dot(rearHub)
       const frontPlane = hubJoin.Dot(frontHub)
@@ -86,7 +88,7 @@
       console.debug("Normal of ", rearPlane, "is", normalOfPlane(rearPlane))
       // console.debug("Front hub is ", frontHub())
       const upDirection = makeDirection(0, 1, 0)
-      const steerAxis = frontHub.Vee(upDirection)
+      const steerAxis = frontHub.Vee(upDirection).Normalized
       let rigidRotationAxis = frontPlane.Wedge(rearPlane)
       let bodyMotor = 1e0123.Dual
       let steerMotor = 1e0123.Dual
@@ -111,8 +113,8 @@
       document.getElementById("time").addEventListener('input', (ev) => {
         // console.debug("Slider change", ev.target.value)
         const delta = ev.target.value - prevTime
-        const deltaMotor = makeMotor(rigidRotationAxis, -delta)
-        bodyMotor = bodyMotor.Mul(deltaMotor) //.Mul(deltaMotor.Reverse)
+        const deltaMotor = makeMotor(rigidRotationAxis, delta)
+        bodyMotor = bodyMotor.Mul(deltaMotor)
         prevTime = ev.target.value
       })
       document.getElementById("ganja-graph").appendChild(this.graph(() => {
@@ -123,21 +125,22 @@
         const rp = bodyMotor >>> rearPlane
         const fp = bodyMotor >>> (steerMotor >>> frontPlane)
         // const fa = bodyMotor >>> (steerMotor >>> frontAxle)
-        const rotationCtr = fp.Wedge(rp).Wedge(groundPlane)
-        return [`Bike Motor ${motorToString(bodyMotor)}. Steer ${steerAngle} degrees. Time ${prevTime}`, //+ rigidRotationCenter.toString(),
-          rh, "R", 
-          0xcccccc, groundPlane,
+        const rotationAxis = fp.Wedge(rp)
+        const rotationCtr = rotationAxis.Wedge(groundPlane)
+        return [`Steer Motor ${motorToString(bodyMotor)}. Steer ${steerAngle} degrees.`, //+ rigidRotationCenter.toString(),
+          rh, "R",
           0xff6600, fh, "F",
           // rearPlane,
           0x000000, [rh, fh],
           // 0x00ff00, fa,
           // 0xFF00FF, fp,
           // 0x0000ff, rp.Normalized,
-          0x008800, rotationCtr,
-          0xffff0077, steerAngle !== 0 ? [rotationCtr,fh,rh]: []
+          0x008800, rotationAxis, rotationCtr,
+          0xcccccc, groundPlane,
+          0xffff0077, Math.abs(steerAngle) > 1e-4 ? [rotationCtr, fh, rh] : "",
         ]
       },
-        { grid: true, labels: true, lineWidth: 3, h: 1.8, p: -0.1, animate: true, width: 800 }))
+        { grid: true, gridSize: 1, labels: true, scale: 1.25, lineWidth: 3, h: 175 * Math.PI/180, /*p: -15*Math.PI/180, */animate: true, width: 800 }))
     })
   </script>
 </body>

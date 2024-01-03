@@ -30,6 +30,8 @@ import {
   DoubleSide,
   Raycaster,
   Line3,
+  PointLightHelper,
+  AxesHelper,
 } from "three";
 import { usePGAStore } from "~/store/pga-store";
 import { useVisualStore } from "~/store/visual-store";
@@ -42,6 +44,7 @@ const {
   makeDirection,
   makePlane,
   makeRotor,
+  makeScalar,
   parsePGAPoint,
   parsePGALine,
   parsePGAPlane,
@@ -74,8 +77,9 @@ let {
   showGeometry,
   runMode,
 } = storeToRefs(PGAStore);
+
 const visualStore = useVisualStore();
-const { makePipe, makeSphere, makeTire, makeArrow } = visualStore;
+const { makePipe, makeSphere, makeTire } = visualStore;
 const {
   visualScene,
   visualCamera,
@@ -84,7 +88,6 @@ const {
 } = storeToRefs(visualStore);
 let driveWheelAngle = 0;
 let driveWheelAngularVelocity = 0;
-// let driveWheelAngularIncrement = 0;
 let steeringWheelAngle = 0;
 let steerDirection = 0; // in radians
 let previousTimeStamp = 0;
@@ -96,9 +99,7 @@ let bike: Group;
 let driveWheel: Group;
 let steeringWheel: Group;
 let steeringFork: Group = new Group();
-let rotationalMotion = false;
-// let rigidRotationRadius = Number.POSITIVE_INFINITY;
-let rigidRotationAngleOrTranslation = 0;
+// let rigidRotationAngleOrTranslation = 0;
 const textureLoader = new TextureLoader();
 const rayCaster = new Raycaster();
 const mousePointerPosition = new Vector2();
@@ -119,20 +120,18 @@ light.castShadow = true;
 // scene.add(light)
 // scene.add(new PointLightHelper(light, 3))
 // scene.background = new Color("skyblue");
-const bikeSideDirection = makeDirection(0, 1, 0);
 const bikeForwardDirection = makeDirection(1, 0, 0);
 const groundPlane = makePlane(0, 0, 1, 0);
-let rearHub = makePoint(20, 0, 0);
-// let frontHub = makePoint(WHEEL_BASE, 0, 0);
+let rearHub = makePoint(13, 0, 0);
 let frontHub = rearHub.Add(PGA3D.Mul(bikeForwardDirection, WHEEL_BASE));
 const joinLine = rearHub.Vee(frontHub).Normalized;
 // parsePGALine("Join RF", joinLine)
 let rearWheelPlane = joinLine.Dot(rearHub);
-parsePGAPlane("RWP", rearWheelPlane);
+// parsePGAPlane("RWP", rearWheelPlane);
 const frontWheelPlaneMesh = new Mesh(
   new PlaneGeometry(WHEEL_RADIUS, 1),
   new MeshBasicMaterial({
-    color: 0x888800,
+    color: 0x008800,
     side: DoubleSide,
     transparent: true,
     opacity: 0.5,
@@ -154,48 +153,38 @@ rearWheelPlaneMesh.position.set(0, 0, WHEEL_RADIUS / 2);
 
 let frontWheelPlane = joinLine.Dot(frontHub);
 // parsePGAPlane("Front WP", frontWheelPlane)
-const frontSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "yellow");
+// const frontSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "yellow");
 const rearSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "red");
-frontSphere.position.set(-frontHub.e023, frontHub.e013, -frontHub.e012);
-rearSphere.position.set(-rearHub.e023, rearHub.e013, -rearHub.e012);
 // Join the center of the rear wheel with a forward vector to make a line
 // const rearWheelPlaneNormal = rearHub.Vee(bikeForwardDirection).Normalized;
 // Create a plane thru the rear wheel hub, perpendicular to the normal
 const upDirection = makeDirection(0, 0, 1);
-const steeringAxis = () => frontHub.Vee(upDirection).Normalized;
-parsePGALine("Steering axis", steeringAxis());
-// console.debug(
-//   "Steering axis",
-//   steeringAxis.value,
-//   steeringAxis.value.toString(),
-//   "FW plane",
-//   frontWheelPlane.toString()
-// );
+const steeringAxis = frontHub.Vee(upDirection).Normalized;
+let steerMotor = makeScalar(1);
+let bodyMotor = makeScalar(1);
 const rotAxisObj = makePipe(WHEEL_RADIUS + TIRE_TUBE_RADIUS, 0.5, "green");
 rotAxisObj.rotateX(MathUtils.degToRad(90));
 rotAxisObj.position.z = -100; // Initially hide it under the ground
-// scene.add(rotAxisObj)
-// render(scene, rearHub)
+scene.add(rotAxisObj);
 let bikeRigidRotationAxis = frontWheelPlane.Wedge(rearWheelPlane);
-// parsePGALine("Rigid rotation axis", bikeRigidRotationAxis);
-const [rearPlane, rearPlaneHelper] = makeAuxPlane(rearWheelPlane, 0xff0000);
+// const [rearPlane, rearPlaneHelper] = makeAuxPlane(rearWheelPlane, 0xff0000);
 
-const [frontPlane, frontPlaneHelper] = makeAuxPlane(frontWheelPlane, 0xffff00);
-const [rearAxis, rearAxisVertices] = makeAuxLine(0xff0000);
-const [frontAxis, frontAxisVertices] = makeAuxLine(0xffff00);
+// const [frontPlane, frontPlaneHelper] = makeAuxPlane(frontWheelPlane, 0xffff00);
+// const [rearAxis, rearAxisVertices] = makeAuxLine(0xff0000);
+// const [frontAxis, frontAxisVertices] = makeAuxLine(0xffff00);
 
-rearAxisVertices[0] = 0;
-rearAxisVertices[1] = 0;
-rearAxisVertices[2] = WHEEL_RADIUS;
-rearAxisVertices[3] = 0;
-rearAxisVertices[4] = 0;
-rearAxisVertices[5] = WHEEL_RADIUS;
-frontAxisVertices[0] = WHEEL_BASE;
-frontAxisVertices[1] = 0;
-frontAxisVertices[2] = WHEEL_RADIUS;
-frontAxisVertices[3] = WHEEL_BASE;
-frontAxisVertices[4] = 0;
-frontAxisVertices[5] = WHEEL_RADIUS;
+// rearAxisVertices[0] = 0;
+// rearAxisVertices[1] = 0;
+// rearAxisVertices[2] = WHEEL_RADIUS;
+// rearAxisVertices[3] = 0;
+// rearAxisVertices[4] = 0;
+// rearAxisVertices[5] = WHEEL_RADIUS;
+// frontAxisVertices[0] = WHEEL_BASE;
+// frontAxisVertices[1] = 0;
+// frontAxisVertices[2] = WHEEL_RADIUS;
+// frontAxisVertices[3] = WHEEL_BASE;
+// frontAxisVertices[4] = 0;
+// frontAxisVertices[5] = WHEEL_RADIUS;
 
 function initializeSteeringGeometry() {
   console.debug("Re init PGA geometry");
@@ -223,36 +212,37 @@ function initializeSteeringGeometry() {
     rigidBodyRotationCenter.e013 * steerDirSign,
     TIRE_RADIUS / 2
   );
-  rearAxisVertices[0] = -rigidBodyRotationCenter.e023 * steerDirSign;
-  rearAxisVertices[1] = rigidBodyRotationCenter.e013 * steerDirSign;
-  rearAxis.geometry.attributes.position.needsUpdate = true;
-  frontAxisVertices[0] = -rigidBodyRotationCenter.e023 * steerDirSign;
-  frontAxisVertices[1] = rigidBodyRotationCenter.e013 * steerDirSign;
-  frontAxis.geometry.attributes.position.needsUpdate = true;
+  // rearAxisVertices[0] = -rigidBodyRotationCenter.e023 * steerDirSign;
+  // rearAxisVertices[1] = rigidBodyRotationCenter.e013 * steerDirSign;
+  // rearAxis.geometry.attributes.position.needsUpdate = true;
+  // frontAxisVertices[0] = -rigidBodyRotationCenter.e023 * steerDirSign;
+  // frontAxisVertices[1] = rigidBodyRotationCenter.e013 * steerDirSign;
+  // frontAxis.geometry.attributes.position.needsUpdate = true;
 }
 
 function removeVisualAccessories() {
-  scene.remove(frontPlaneHelper);
-  scene.remove(rearPlaneHelper);
+  // scene.remove(frontPlaneHelper);
+  // scene.remove(rearPlaneHelper);
   scene.remove(rotAxisObj);
-  scene.remove(frontSphere);
+  // scene.remove(frontSphere);
   scene.remove(rearSphere);
-  scene.remove(frontAxis);
-  scene.remove(rearAxis);
+  // scene.remove(frontAxis);
+  // scene.remove(rearAxis);
   steeringFork.remove(frontWheelPlaneMesh);
   bike.remove(rearWheelPlaneMesh);
 }
 
 function addVisualAccessories() {
-  scene.add(frontPlaneHelper);
-  scene.add(rearPlaneHelper);
+  // scene.add(frontPlaneHelper);
+  // scene.add(rearPlaneHelper);
   scene.add(rotAxisObj);
-  scene.add(frontSphere);
+  // scene.add(frontSphere);
   scene.add(rearSphere);
-  scene.add(frontAxis);
-  scene.add(rearAxis);
+  // scene.add(frontAxis);
+  // scene.add(rearAxis);
   steeringFork.add(frontWheelPlaneMesh);
   bike.add(rearWheelPlaneMesh);
+  bike.position.copy(rearSphere.position);
 }
 
 watch(
@@ -264,7 +254,7 @@ watch(
       if (showGeometry.value) removeVisualAccessories();
       // camera.position.set(0, -500, 700);
       // camera.lookAt(0, -200, 0);
-      cameraStart.set(WHEEL_RADIUS, -100, 50);
+      cameraStart.set(WHEEL_RADIUS, -100, 63);
       cameraEnd.set(0, -500, 700);
       cameraLine.set(cameraStart, cameraEnd);
       lookAtStart.set(WHEEL_BASE / 2, 0, 5);
@@ -313,8 +303,8 @@ watch(
   [() => bodyPosition.value, () => bodyRotation.value],
   ([position, orientation]: [Vector2, number]) => {
     // console.debug(`Changing bike position to (${position.x},${position.y})`);
-    bike.position.x = position.x;
-    bike.position.y = position.y;
+    // bike.position.x = position.x;
+    // bike.position.y = position.y;
     bike.rotation.z = orientation;
   },
   { deep: true }
@@ -348,6 +338,7 @@ onMounted(async () => {
   // steeringFork.add(frontWheelPlaneMesh);
   bike.add(light);
   scene.add(bike);
+  // bike.position.copy(rearSphere.position)
   renderer = new WebGLRenderer({
     canvas: glcanvas.value!,
     antialias: true,
@@ -420,6 +411,10 @@ function makeAuxLine(color?: number): [Line, Float32Array] {
   return [line, vertices];
 }
 
+function sandwich(motor: GAElement, X: GAElement): GAElement {
+  return motor.Mul(X).Mul(motor.Reverse);
+}
+
 // Bicycle Riding Model: https://ciechanow.ski/bicycle/
 function run_geometric_integrator(timeMillisec: number) {
   lastInterpolatedTorque = currInterpolatedTorque; // f_{k-1+alpha}
@@ -442,92 +437,49 @@ function run_geometric_integrator(timeMillisec: number) {
   steerDirection += steerDirectionGain;
   if (Math.abs(steerVelocity.value) > 1e-3) {
     // steer angle changes
-    if (Math.abs(steerDirection) < 1e-3) {
-      // translational motion
-      // if (rotationalMotion) scene.remove(rotAxisObj);
-      rotationalMotion = false;
-    } else {
-      // rotational motion
-      // if (!rotationalMotion && showGeometry.value) scene.add(rotAxisObj);
-      rotationalMotion = true;
-    }
-    const steeringRotor = makeRotor(steeringAxis(), steerDirectionGain);
-    const tempFP = steeringRotor
-      .Mul(frontWheelPlane)
-      .Mul(steeringRotor.Reverse);
-    // parsePGAPlane("Steering plane", frontWheelPlane);
-    bikeRigidRotationAxis = tempFP.Wedge(rearWheelPlane);
+    const deltaSteerRotor = makeRotor(steeringAxis, steerDirectionGain);
+    steerMotor = deltaSteerRotor.Mul(steerMotor);
+    bikeRigidRotationAxis = sandwich(steerMotor, frontWheelPlane).Wedge(
+      rearWheelPlane
+    );
     parsePGALine("Rotation axis", bikeRigidRotationAxis);
-    parsePGAPoint(
-      "Pivot of rotation",
-      bikeRigidRotationAxis.Wedge(groundPlane).Normalized
-    );
-    frontWheelPlane = tempFP;
-    frontPlane.normal.set(
-      frontWheelPlane.e1,
-      frontWheelPlane.e2,
-      frontWheelPlane.e3
-    );
-    frontPlane.constant = frontWheelPlane.e0;
     // We HAVE TO normalized the point to include the correct scaling factor
-    const rigidBodyRotationCenter = bikeRigidRotationAxis.Wedge(groundPlane);
+    let rigidBodyRotationCenter =
+      bikeRigidRotationAxis.Wedge(groundPlane).Normalized;
+    rigidBodyRotationCenter = sandwich(bodyMotor, rigidBodyRotationCenter);
     rigidBodyRotationCenter.e023 =
       rigidBodyRotationCenter.e023 / rigidBodyRotationCenter.e123;
     rigidBodyRotationCenter.e013 =
       rigidBodyRotationCenter.e013 / rigidBodyRotationCenter.e123;
-    // parsePGAPoint("RB rotation center", rigidBodyRotationCenter);
-    const steerDirSign = Math.sign(steerDirection);
     rotAxisObj.position.set(
-      -rigidBodyRotationCenter.e023 * steerDirSign,
-      rigidBodyRotationCenter.e013 * steerDirSign,
+      -rigidBodyRotationCenter.e023,
+      rigidBodyRotationCenter.e013,
       TIRE_RADIUS / 2
     );
-    rearAxisVertices[0] = -rigidBodyRotationCenter.e023 * steerDirSign;
-    rearAxisVertices[1] = rigidBodyRotationCenter.e013 * steerDirSign;
-    rearAxis.geometry.attributes.position.needsUpdate = true;
-    frontAxisVertices[0] = -rigidBodyRotationCenter.e023 * steerDirSign;
-    frontAxisVertices[1] = rigidBodyRotationCenter.e013 * steerDirSign;
-    frontAxis.geometry.attributes.position.needsUpdate = true;
   }
-  if (driveWheelAngularVelocity !== 0) {
+  if (driveWheelAngularVelocity !== 0 && !brakeApplied.value) {
     bikeInMotion.value = true;
     const driveWheelAngleGain = driveWheelAngularVelocity * elapsed; // radians
     const linearDistanceGain =
       driveWheelAngleGain * (WHEEL_RADIUS + TIRE_TUBE_RADIUS) * INCH_TO_METER;
+    let motionAmount = 0;
     if (Math.abs(steerDirection) < 1e-5) {
       // Translational motion
-      rigidRotationAngleOrTranslation = linearDistanceGain; // in meter
+      motionAmount = linearDistanceGain; // in meter
     } else {
       // rotational motion
       const turnRadius =
         Math.abs(WHEEL_BASE / Math.tan(-steerDirection)) * INCH_TO_METER;
-      rigidRotationAngleOrTranslation = linearDistanceGain / turnRadius;
-      bodyRotation.value +=
-        rigidRotationAngleOrTranslation * Math.sign(-steerDirection);
+      motionAmount = linearDistanceGain / turnRadius;
+      bodyRotation.value += motionAmount * Math.sign(-steerDirection);
     }
     steeringWheelAngle += driveWheelAngleGain / Math.cos(steerDirection);
     driveWheelAngle += driveWheelAngleGain;
-    const bikeRigidMotionRotor = makeRotor(
+    const deltaBodyMotor = makeRotor(
       bikeRigidRotationAxis.Normalized,
-      rigidRotationAngleOrTranslation
+      motionAmount
     );
-    // console.debug("Bike rigid motion rotor", bikeRigidMotionRotor);
-    const tempFWP = bikeRigidMotionRotor
-      .Mul(frontWheelPlane)
-      .Mul(bikeRigidMotionRotor.Reverse);
-    const tempRWP = bikeRigidMotionRotor
-      .Mul(rearWheelPlane)
-      .Mul(bikeRigidMotionRotor.Reverse);
-    const tempRH = bikeRigidMotionRotor
-      .Mul(rearHub)
-      .Mul(bikeRigidMotionRotor.Reverse);
-    const tempFH = bikeRigidMotionRotor
-      .Mul(frontHub)
-      .Mul(bikeRigidMotionRotor.Reverse);
-    frontWheelPlane = tempFWP;
-    rearWheelPlane = tempRWP;
-    frontHub = tempFH;
-    rearHub = tempRH;
+    bodyMotor = bodyMotor.Mul(deltaBodyMotor);
   } else {
     bikeInMotion.value = false;
   }
@@ -545,34 +497,22 @@ function updatePoseOnly(timeStamp: number) {
 
 function updateGraphics(timeStamp: number) {
   // console.debug("Angular velo", driveWheelAngularVelocity)
-  if (!brakeApplied.value) {
-    run_geometric_integrator(timeStamp);
-    driveWheel.rotation.z = -driveWheelAngle;
-    steeringWheel.rotation.z = -steeringWheelAngle;
-    bike.position.x = -rearHub.e023;
-    bike.position.y = rearHub.e013;
-    bike.rotation.z = -bodyRotation.value;
-    rearPlane.normal.set(
-      rearWheelPlane.e1,
-      rearWheelPlane.e2,
-      rearWheelPlane.e3
-    );
-    rearPlane.constant = rearWheelPlane.e0;
-    frontSphere.position.set(-frontHub.e023, frontHub.e013, -frontHub.e012);
-    rearSphere.position.set(-rearHub.e023, rearHub.e013, -rearHub.e012);
-    rearAxisVertices[3] = -rearHub.e023;
-    rearAxisVertices[4] = rearHub.e013;
-    rearAxis.geometry.attributes.position.needsUpdate = true;
-  }
-  frontPlane.normal.set(
-    frontWheelPlane.e1,
-    frontWheelPlane.e2,
-    frontWheelPlane.e3
-  );
-  frontPlane.constant = frontWheelPlane.e0;
-  frontAxisVertices[3] = -frontHub.e023;
-  frontAxisVertices[4] = frontHub.e013;
-  frontAxis.geometry.attributes.position.needsUpdate = true;
+  run_geometric_integrator(timeStamp);
+  const rh = sandwich(bodyMotor, rearHub).Normalized;
+  // const fh = sandwich(bodyMotor, frontHub).Normalized;
+  driveWheel.rotation.z = -driveWheelAngle;
+  steeringWheel.rotation.z = -steeringWheelAngle;
+  bike.position.x = -rh.e023 / rh.e123;
+  bike.position.y = rh.e013 / rh.e123;
+  bike.rotation.z = -bodyRotation.value;
+  // const rp = sandwich(bodyMotor, rearWheelPlane);
+  // rearPlane.normal.set(rp.e1, rp.e2, rp.e3);
+  // rearPlane.constant = rp.e0;
+  // frontSphere.position.set(-fh.e023/fh.e123, fh.e013/fh.e123, -fh.e012);
+  rearSphere.position.set(-rh.e023 / rh.e123, rh.e013 / rh.e123, -rh.e012);
+  // const fp = sandwich(bodyMotor, sandwich(steerMotor, frontWheelPlane));
+  // frontPlane.normal.set(fp.e1, fp.e2, fp.e3);
+  // frontPlane.constant = fp.e0;
   steeringFork.rotation.z = steerDirection;
   if (Math.abs(steerDirection) > 1e-3) {
     const rigidRotationOuterRadius = WHEEL_BASE / Math.sin(steerDirection);
@@ -596,7 +536,6 @@ function updateGraphics(timeStamp: number) {
 
 function makeBike(): Group {
   const bikeGroup = new Group();
-  // bikeFrame.add(new AxesHelper(24))
   // X-positive is forward travel direction
   driveWheel = makeTire(TIRE_RADIUS, TIRE_TUBE_RADIUS);
   // driveWheel.position.x = WHEEL_BASE;
@@ -609,28 +548,72 @@ function makeBike(): Group {
   steeringFork.add(frontWheelPlaneMesh);
   bikeGroup.add(steeringFork);
   steeringFork.add(steeringWheel);
+  const steerHandleAndFork = new Group();
+  steeringFork.add(steerHandleAndFork);
+  // steerHandleAndFork.add(new AxesHelper(200))
+  steerHandleAndFork.position.set(0, 0, WHEEL_RADIUS);
+  steerHandleAndFork.rotateY(MathUtils.degToRad(-15));
+  const FORK_LENGTH = WHEEL_RADIUS + 2;
+  const leftFork = makePipe(FORK_LENGTH, 0.6, "yellow");
+  const rightFork = makePipe(FORK_LENGTH, 0.6, "yellow");
+  const forkBridge = makePipe(5 * TIRE_TUBE_RADIUS, 0.6, "yellow");
+  const handleSupport = makePipe(7, 0.6, "white");
+  const handleBar = makePipe(28, 0.7, "white");
+  leftFork.position.set(0, 3, FORK_LENGTH / 2);
+  leftFork.rotateX(Math.PI / 2);
+  rightFork.position.set(0, -3, FORK_LENGTH / 2);
+  rightFork.rotateX(Math.PI / 2);
+  forkBridge.position.set(0, 0, WHEEL_RADIUS + 2);
+  handleSupport.position.set(0, 0, WHEEL_RADIUS + 5);
+  handleSupport.rotateX(MathUtils.degToRad(90));
+  handleBar.position.set(0, 0, WHEEL_RADIUS + 9);
+  steerHandleAndFork.add(leftFork);
+  steerHandleAndFork.add(rightFork);
+  steerHandleAndFork.add(forkBridge);
+  steerHandleAndFork.add(handleSupport);
+  steerHandleAndFork.add(handleBar);
   // bikeFrame.rotation.z = Math.PI / 4;
   const bikeFrame = new Group();
   bikeGroup.add(bikeFrame);
-  const seatTube = makePipe(24, 1, "red");
+  const seatTube = makePipe(24, 1, "yellow");
   seatTube.rotateX(Math.PI / 2);
   seatTube.translateY(12 + TIRE_RADIUS);
   seatTube.rotateZ(MathUtils.degToRad(15));
   seatTube.translateX(-8);
   // seatTube.add(new AxesHelper(10));
   bikeFrame.add(seatTube);
-  const downTube = makePipe(33, 1, "red");
+  const downTube = makePipe(33, 1, "yellow");
   downTube.rotateX(MathUtils.degToRad(90));
   downTube.translateY(9 + TIRE_RADIUS);
   downTube.translateX(7);
   downTube.rotateZ(MathUtils.degToRad(-45));
   bikeFrame.add(downTube);
-  const topTube = makePipe(29, 1, "red");
+  const topTube = makePipe(29, 1, "yellow");
   topTube.rotateZ(MathUtils.degToRad(90));
   topTube.translateZ(33);
   topTube.translateY(-4);
   bikeFrame.add(topTube);
   bikeFrame.translateX(WHEEL_BASE / 2);
+  const leftChainStay = makePipe(WHEEL_RADIUS + 7, 0.7, "yellow")
+  const rightChainStay = makePipe(WHEEL_RADIUS + 7, 0.7, "yellow")
+  bikeFrame.add(leftChainStay)
+  bikeFrame.add(rightChainStay)
+  leftChainStay.rotateZ(MathUtils.degToRad(90))
+  leftChainStay.rotateX(MathUtils.degToRad(10))
+  leftChainStay.position.set(-0.5 * (WHEEL_RADIUS + 3.5) - 5, 1.8 * TIRE_TUBE_RADIUS, 14)
+  rightChainStay.rotateZ(MathUtils.degToRad(90))
+  rightChainStay.rotateX(MathUtils.degToRad(10))
+  rightChainStay.position.set(-0.5 * (WHEEL_RADIUS + 3.5) - 5, -1.8 * TIRE_TUBE_RADIUS, 14)
+  const leftSeatStay = makePipe(WHEEL_RADIUS + 7, 0.7, "yellow")
+  bikeFrame.add(leftSeatStay)
+  leftSeatStay.rotateX(MathUtils.degToRad(90))
+  leftSeatStay.position.set(-WHEEL_RADIUS-1.9, 1.8 * TIRE_TUBE_RADIUS, 1.7*WHEEL_RADIUS)
+  leftSeatStay.rotateZ(MathUtils.degToRad(-40))
+  const rightSeatStay = makePipe(WHEEL_RADIUS + 7, 0.7, "yellow")
+  bikeFrame.add(rightSeatStay)
+  rightSeatStay.rotateX(MathUtils.degToRad(90))
+  rightSeatStay.position.set(-WHEEL_RADIUS-1.9, -1.8 * TIRE_TUBE_RADIUS, 1.7*WHEEL_RADIUS)
+  rightSeatStay.rotateZ(MathUtils.degToRad(-40))
   return bikeGroup;
 }
 

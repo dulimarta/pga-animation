@@ -58,6 +58,10 @@ export function usePGA2D() {
 export function usePGA3D() {
   const ORIGIN = makePoint(0, 0, 0);
 
+  function makeScalar(s: number): GAElement {
+    return new PGA3D().nVector(0,s)
+  }
+
   function makePoint(x: number, y: number, z: number): GAElement {
     const p = new PGA3D().nVector(1, 1, x, y, z).Dual;
     // console.debug("Make point", PGA3D.describe())
@@ -93,6 +97,7 @@ export function usePGA3D() {
     // );
     return p;
   }
+  
   function parsePGAPoint(text: string, pointEl: GAElement) {
     const px = -pointEl.e023;
     const py = pointEl.e013;
@@ -153,103 +158,12 @@ export function usePGA3D() {
     );
   }
 
-  // function isProperLine(elem: GAElement): boolean {
-  //   const thru_x = elem[10];
-  //   const thru_y = -elem[9];
-  //   const thru_z = elem[8];
-  //   return (
-  //     Math.abs(thru_x) > 1e-5 ||
-  //     Math.abs(thru_y) > 1e-5 ||
-  //     Math.abs(thru_z) > 1e-5
-  //   );
-  // }
-
-  function gradedRender(scene: Scene, elem: typeof PGA3D) {
-    // When the Algebra is graded, multivectors are stored in different
-    // sparse arrays based on their grade
-    let k = 0;
-    while (k < elem.length) {
-      if (elem[k]) break;
-      else k++;
-    }
-    // The incoming parameter is a JS Sparse Array and may contain 'empty' elements.
-    // We will replace these 'empty' elements with zeros
-    const elems = [...elem[k]].map((v: any) => (typeof v === "number" ? v : 0));
-    console.debug(
-      "rendering input",
-      elem[k],
-      "Sanitized rendering input",
-      elems
-    );
-    switch (k) {
-      case 0:
-        console.debug("Rendering scalar", elems);
-        break;
-      case 1: // Plane
-        const normal = elems.slice(1, 4);
-        while (normal.length < 3) normal.push(0);
-        console.debug(
-          "Rendering a plane with normal",
-          normal,
-          "distance",
-          elems[0]
-        );
-        const plane = new Plane(
-          new Vector3(normal[0], normal[1], normal[2]),
-          elems[0]
-        );
-        // plane.translate(new Vector3(WHEEL_BASE/2,0,WHEEL_RADIUS))
-        const planeHelper = new PlaneHelper(plane, 20, 0xff0000);
-        // const steeringPlaneMat = new MeshStandardMaterial({ color: 0x00ff00 })
-        scene.add(planeHelper);
-        return planeHelper;
-      case 2: // Line
-        const direction = elems.slice(3, 7);
-        // When the sparse array contains "empty" elements,
-        // we may not get enough values. Pad with zeros
-        while (direction.length < 3) direction.push(0);
-        const thruPoint = elems.slice(0, 3);
-        console.debug(
-          "Rendering a line",
-          elem.toString(),
-          "thru",
-          thruPoint,
-          "dir",
-          direction.reverse()
-        );
-        break;
-      case 3: // Point (Euclidean or Ideal)
-        const px = -elems[2];
-        const py = elems[1];
-        const pz = -elems[0];
-        const pw = elems[3];
-        if (Math.abs(pw) > 1e-5) {
-          console.debug(
-            "Rendering a point ",
-            elems,
-            elem.toString(),
-            `==> (${px.toFixed(2)},${py.toFixed(2)},${pz.toFixed(2)})`
-          );
-          const pGeo = new SphereGeometry(2, 20, 20);
-          const pMat = new MeshBasicMaterial({ color: 0xffff00 });
-          const pMesh = new Mesh(pGeo, pMat);
-          pMesh.position.set(px, py, pz);
-          scene.add(pMesh);
-        } else {
-          console.error("Directions are not rendered");
-        }
-        break;
-      case 4:
-        console.debug("Rendering superscalar", elems);
-        break;
-    }
-  }
-
   return {
     makePoint,
     makeDirection,
     makePlane,
     makeRotor,
+    makeScalar,
     parsePGALine,
     parsePGAPlane,
     parsePGAPoint,
