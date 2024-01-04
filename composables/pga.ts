@@ -18,6 +18,7 @@ export interface GAElement {
   Vee(_: GAElement): GAElement;
   Wedge(_: GAElement): GAElement;
   Mul(_: GAElement): GAElement;
+  Grade(_: number): number[];
   get Dual(): GAElement;
   get Normalized(): GAElement;
   get Reverse(): GAElement;
@@ -59,7 +60,7 @@ export function usePGA3D() {
   const ORIGIN = makePoint(0, 0, 0);
 
   function makeScalar(s: number): GAElement {
-    return new PGA3D().nVector(0,s)
+    return new PGA3D().nVector(0, s);
   }
 
   function makePoint(x: number, y: number, z: number): GAElement {
@@ -97,7 +98,7 @@ export function usePGA3D() {
     // );
     return p;
   }
-  
+
   function parsePGAPoint(text: string, pointEl: GAElement) {
     const px = -pointEl.e023;
     const py = pointEl.e013;
@@ -117,6 +118,13 @@ export function usePGA3D() {
     return Math.abs(dx) < 1e-5 && Math.abs(dy) < 1e-5 && Math.abs(dz) < 1e-5;
   }
 
+  function parsePGAMotor(text: string, m: GAElement) {
+    return (
+      `[${text}] Scalar ${m.Grade(0)[0].toFixed(2)}` +
+      ` Trans (${m.e01.toFixed(3)},${m.e02.toFixed(3)},${m.e03.toFixed(3)})` +
+      ` Rot (${m.e23.toFixed(3)},${m.e13.toFixed(3)},${m.e12.toFixed(3)})`
+    );
+  }
   function parsePGALine(text: string, lineEl: GAElement) {
     // Lines are represented using Plucker 6-dim homogeneous coordinates
     // (moment_x, moment_y, moment_z; dir_x, dir_y, dir_z)
@@ -167,6 +175,7 @@ export function usePGA3D() {
     parsePGALine,
     parsePGAPlane,
     parsePGAPoint,
-    isIdealLine
+    parsePGAMotor,
+    isIdealLine,
   };
 }

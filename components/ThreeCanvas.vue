@@ -55,7 +55,7 @@ const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
 const TIRE_RADIUS = 13; // inches
 const TIRE_TUBE_RADIUS = 1.5; // inches
 const INCH_TO_METER = 0.0254;
-const WHEEL_BASE = 48; // inches
+const WHEEL_BASE = 46; // inches
 const DRIVE_WHEEL_MASS = 2; // in kilogram
 const DRIVE_WHEEL_INERTIA = 3; // kg m^2
 const TOTAL_INERTIA =
@@ -76,6 +76,7 @@ let {
   bodyRotation,
   showGeometry,
   runMode,
+  steerMotor, bodyMotor
 } = storeToRefs(PGAStore);
 
 const visualStore = useVisualStore();
@@ -160,8 +161,8 @@ const rearSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "red");
 // Create a plane thru the rear wheel hub, perpendicular to the normal
 const upDirection = makeDirection(0, 0, 1);
 const steeringAxis = frontHub.Vee(upDirection).Normalized;
-let steerMotor = makeScalar(1);
-let bodyMotor = makeScalar(1);
+// let steerMotor = makeScalar(1);
+// let bodyMotor = makeScalar(1);
 const rotAxisObj = makePipe(WHEEL_RADIUS + TIRE_TUBE_RADIUS, 0.5, "green");
 rotAxisObj.rotateX(MathUtils.degToRad(90));
 rotAxisObj.position.z = -100; // Initially hide it under the ground
@@ -330,7 +331,7 @@ onMounted(async () => {
   camera = new PerspectiveCamera(50, 4 / 3, 0.1, 1000);
   // rayCaster.setFromCamera(mousePointerPosition, camera);
   visualCamera.value = camera;
-  camera.position.set(WHEEL_RADIUS, -100, 50);
+  camera.position.set(-1.8 * WHEEL_RADIUS, -100, 50);
   camera.up.set(0, 0, 1);
   camera.lookAt(WHEEL_BASE / 2, 0, 5);
   bike = makeBike();
@@ -438,15 +439,17 @@ function run_geometric_integrator(timeMillisec: number) {
   if (Math.abs(steerVelocity.value) > 1e-3) {
     // steer angle changes
     const deltaSteerRotor = makeRotor(steeringAxis, steerDirectionGain);
-    steerMotor = deltaSteerRotor.Mul(steerMotor);
-    bikeRigidRotationAxis = sandwich(steerMotor, frontWheelPlane).Wedge(
+    // Premultiply the new motor
+    steerMotor.value = deltaSteerRotor.Mul(steerMotor.value);
+    // Recalculate the rotation axis (in the body coordinate)
+    bikeRigidRotationAxis = sandwich(steerMotor.value, frontWheelPlane).Wedge(
       rearWheelPlane
     );
     parsePGALine("Rotation axis", bikeRigidRotationAxis);
     // We HAVE TO normalized the point to include the correct scaling factor
     let rigidBodyRotationCenter =
       bikeRigidRotationAxis.Wedge(groundPlane).Normalized;
-    rigidBodyRotationCenter = sandwich(bodyMotor, rigidBodyRotationCenter);
+    rigidBodyRotationCenter = sandwich(bodyMotor.value, rigidBodyRotationCenter);
     rigidBodyRotationCenter.e023 =
       rigidBodyRotationCenter.e023 / rigidBodyRotationCenter.e123;
     rigidBodyRotationCenter.e013 =
@@ -479,7 +482,7 @@ function run_geometric_integrator(timeMillisec: number) {
       bikeRigidRotationAxis.Normalized,
       motionAmount
     );
-    bodyMotor = bodyMotor.Mul(deltaBodyMotor);
+    bodyMotor.value = bodyMotor.value.Mul(deltaBodyMotor);
   } else {
     bikeInMotion.value = false;
   }
@@ -498,7 +501,7 @@ function updatePoseOnly(timeStamp: number) {
 function updateGraphics(timeStamp: number) {
   // console.debug("Angular velo", driveWheelAngularVelocity)
   run_geometric_integrator(timeStamp);
-  const rh = sandwich(bodyMotor, rearHub).Normalized;
+  const rh = sandwich(bodyMotor.value, rearHub).Normalized;
   // const fh = sandwich(bodyMotor, frontHub).Normalized;
   driveWheel.rotation.z = -driveWheelAngle;
   steeringWheel.rotation.z = -steeringWheelAngle;
@@ -558,7 +561,7 @@ function makeBike(): Group {
   const rightFork = makePipe(FORK_LENGTH, 0.6, "yellow");
   const forkBridge = makePipe(5 * TIRE_TUBE_RADIUS, 0.6, "yellow");
   const handleSupport = makePipe(7, 0.6, "white");
-  const handleBar = makePipe(28, 0.7, "white");
+  const handleBar = makePipe(26, 0.7, "white");
   leftFork.position.set(0, 3, FORK_LENGTH / 2);
   leftFork.rotateX(Math.PI / 2);
   rightFork.position.set(0, -3, FORK_LENGTH / 2);
@@ -604,12 +607,12 @@ function makeBike(): Group {
   rightChainStay.rotateZ(MathUtils.degToRad(90))
   rightChainStay.rotateX(MathUtils.degToRad(10))
   rightChainStay.position.set(-0.5 * (WHEEL_RADIUS + 3.5) - 5, -1.8 * TIRE_TUBE_RADIUS, 14)
-  const leftSeatStay = makePipe(WHEEL_RADIUS + 7, 0.7, "yellow")
+  const leftSeatStay = makePipe(WHEEL_RADIUS + 8, 0.7, "yellow")
   bikeFrame.add(leftSeatStay)
   leftSeatStay.rotateX(MathUtils.degToRad(90))
   leftSeatStay.position.set(-WHEEL_RADIUS-1.9, 1.8 * TIRE_TUBE_RADIUS, 1.7*WHEEL_RADIUS)
   leftSeatStay.rotateZ(MathUtils.degToRad(-40))
-  const rightSeatStay = makePipe(WHEEL_RADIUS + 7, 0.7, "yellow")
+  const rightSeatStay = makePipe(WHEEL_RADIUS + 8, 0.7, "yellow")
   bikeFrame.add(rightSeatStay)
   rightSeatStay.rotateX(MathUtils.degToRad(90))
   rightSeatStay.position.set(-WHEEL_RADIUS-1.9, -1.8 * TIRE_TUBE_RADIUS, 1.7*WHEEL_RADIUS)

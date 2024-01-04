@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { Vector2 } from "three";
+const {makeScalar} = usePGA3D()
 export const usePGAStore = defineStore('pga', () => {
   const driveWheelTorque = ref(0) /* Newton-M */
   const steerVelocity = ref(0)
@@ -9,8 +10,9 @@ export const usePGAStore = defineStore('pga', () => {
   const brakeApplied = ref(false)
   const showGeometry = ref(true)
   const bikeInMotion = ref(false)
-  const runMode: Ref<"plan"|"run"> = ref("run")
+  const runMode: Ref<"plan" | "run"> = ref("run")
+  const steerMotor: Ref<GAElement> = ref(makeScalar(1))
+  const bodyMotor: Ref<GAElement> = ref(makeScalar(1))
 
-  // const floorInputPosition: Ref<Vector2> = ref(new Vector2())
-  return {driveWheelTorque, steerVelocity, bodyPosition, bodyRotation, bikeInMotion, brakeApplied, showGeometry, runMode}
+  return {driveWheelTorque, steerVelocity, bodyPosition, bodyRotation, bikeInMotion, brakeApplied, showGeometry, runMode, steerMotor, bodyMotor}
 })

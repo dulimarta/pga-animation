@@ -29,10 +29,11 @@
         </v-col>
       </v-row>      
     </v-container>
-    <span style="display: flex">
+    <span id="switches">
       <v-switch v-model="brakeApplied" :label="switchLabel"></v-switch>
       <v-switch v-model="showGeometry" label="Show Geometry" />
     </span>
+    <v-textarea v-model="infoText"></v-textarea>
   </div>
 </template>
 
@@ -40,18 +41,27 @@
 import { usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
 import { MathUtils } from "three";
+const {parsePGAMotor } = usePGA3D()
 const store = usePGAStore();
 const {
   driveWheelTorque,
-  steerVelocity,
+  steerVelocity,  
   brakeApplied,
   showGeometry,
+  steerMotor, bodyMotor
 } = storeToRefs(store);
 
 const STEER_SPEED = 30;
+const infoText = ref("")
 const switchLabel = computed(() =>
   brakeApplied.value ? "Release brake" : "Apply brake"
 );
+
+infoText.value = parsePGAMotor("Body Motor", bodyMotor.value)
+watch([steerMotor, bodyMotor], ([s,b]: [GAElement,GAElement]) => {
+  // console.debug("Steer motor changed", s.toString())
+  infoText.value = parsePGAMotor("Steer Motor", s) + '  ' + parsePGAMotor("Body Motor", b)
+})
 function moreTorque() {
   driveWheelTorque.value = 2;
   setTimeout(() => {
@@ -86,5 +96,8 @@ function steerRight() {
   grid-template-columns: 4fr 1fr;
   /* display: inline-flex; */
   /* flex-direction: column; */
+}
+#switches {
+  display: flex;
 }
 </style>
