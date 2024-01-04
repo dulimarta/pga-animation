@@ -53,7 +53,10 @@ export function usePGA2D() {
     const d = new PGA2D().nVector(1, 0, dx, dy).Dual.Normalized;
     return d;
   }
-  return { makePoint, makeDirection };
+  function parsePGAPoint(text: string, P: GAElement): string {
+    return `${text}: (${-(P.e02/P.e12).toFixed(2)},${(P.e01/P.e12).toFixed(2)})`;
+  }
+  return { makePoint, makeDirection, parsePGAPoint };
 }
 
 export function usePGA3D() {

@@ -41,7 +41,13 @@
       </ul>
     </div>
     <v-btn
-      :disabled="parallelWarning || !initialMarkerShown || !finalMarkerShown"
+      :disabled="
+        parallelWarning ||
+        !initialMarkerShown ||
+        !finalMarkerShown ||
+        paths.length === 0
+      "
+      @click="executePlan"
       >Execute</v-btn
     >
     <!-- Snackbar timeout:-1 to keep it shown indefinitely -->
@@ -65,7 +71,29 @@ import { GAElement } from "~/composables/pga";
 const controlKey = useKeyModifier("Control", { events: ["mousemove"] });
 const altKey = useKeyModifier("Alt", { events: ["mousemove"] });
 
-const { makePoint: make2DPoint, makeDirection } = usePGA2D();
+type SegmentType = {
+  kind: "Rot" | "Trans" | "Start" | "End";
+};
+type RotationPath = SegmentType & {
+  // kind: SegmentType,
+  x: number;
+  y: number;
+  arcLength: number;
+};
+
+type TranslationPath = SegmentType & {
+  distance: number;
+};
+type Terminal = SegmentType & {
+  x: number;
+  y: number;
+};
+type PathSegment = RotationPath | TranslationPath | Terminal;
+const {
+  makePoint: make2DPoint,
+  makeDirection,
+  parsePGAPoint: dump2DPoint,
+} = usePGA2D();
 // const { makePoint: make3DPoint } = usePGA3D();
 const MARKER_LENGTH = 50;
 const PATH_THICKNESS = 2.5;
@@ -94,7 +122,7 @@ const transitionSphere2 = makeSphere(8, "white");
 const transitionPipe = makePipe(1, PATH_THICKNESS, "white");
 const arcFromInitial = makeArc(1, PATH_THICKNESS, 90, "white");
 const arcToFinal = makeArc(1, PATH_THICKNESS, 90, "white");
-const paths: Ref<Array<string>> = ref([]);
+const paths: Ref<Array<PathSegment>> = ref([]);
 
 onMounted(() => {
   visualScene.value?.add(initialMarker);
@@ -193,17 +221,6 @@ watch(
   },
   { deep: true }
 );
-
-function parseLine(text: string, L: GAElement): string {
-  return `${text}: ${L.e1.toFixed(2)}X ${L.e2.toFixed(2)}Y + ${L.e0.toFixed(
-    2
-  )}`;
-}
-function parsePoint(text: string, P: GAElement): string {
-  return `${text}: (${-P.e02.toFixed(2)},${P.e01.toFixed(2)} Scale = ${
-    P.e12
-  }})`;
-}
 
 function rotateThenTranslate(
   initialPoint: GAElement,
@@ -317,13 +334,21 @@ function doSingleTurn(
     isRotateThenTranslate = false;
   }
   const rotationDetails =
-    "Rotate " +
+    "Rotate 310 " +
     (isCCW ? "CCW" : "CW") +
-    ` ${rotateAmount.toFixed(1)} degrees with radius ${radiusOfRotation.toFixed(
-      2
-    )}`;
-  if (isRotateThenTranslate) paths.value.push(rotationDetails, "Translate");
-  else paths.value.push("Translate", rotationDetails);
+    ` ${rotateAmount.toFixed(1)} degrees at ${dump2DPoint(
+      "R1",
+      pivotOfRotation
+    )} with radius ${radiusOfRotation.toFixed(2)}`;
+  const rotationSegment: RotationPath = {
+    kind: "Rot",
+    x: -pivotOfRotation.e02 / pivotOfRotation.e12,
+    y: pivotOfRotation.e01 / pivotOfRotation.e12,
+    arcLength: rotateAmount,
+  };
+  if (isRotateThenTranslate)
+    paths.value.push(rotationSegment, { kind: "Trans", distance: 0 });
+  else paths.value.push({ kind: "Trans", distance: 0 }, rotationSegment);
   rotationPivotSphere.position.set(
     -pivotOfRotation.e02 / pivotOfRotation.e12,
     pivotOfRotation.e01 / pivotOfRotation.e12,
@@ -548,13 +573,19 @@ function doDoubleArc(
         ? MathUtils.degToRad(90 - outgoingArcLength + initialOrientation.value)
         : MathUtils.degToRad(initialOrientation.value - 90);
     modifyTurningArc(arcFromInitial, outgoingRadius, outgoingArcLength);
-    paths.value.push(
-      "Rotate " +
-        (isLeftRightArcs ? "CCW" : "CW") +
-        ` ${outgoingArcLength.toFixed(2)} with radius ${outgoingRadius.toFixed(
-          2
-        )}`
-    );
+    // paths.value.push(
+    //   "Rotate " +
+    //     (isLeftRightArcs ? "CCW" : "CW") +
+    //     ` ${outgoingArcLength.toFixed(2)} at ${dump2DPoint("R1", outCenter)} with radius ${outgoingRadius.toFixed(
+    //       2
+    //     )}`
+    // );
+    paths.value.push({
+      kind: "Rot",
+      x: -outCenter.e02 / outCenter.e12,
+      y: outCenter.e01 / outCenter.e12,
+      arcLength: isLeftRightArcs ? outgoingArcLength : -outgoingArcLength,
+    });
     arcToFinal.position.set(
       -inCenter.e02 / inCenter.e12,
       inCenter.e01 / inCenter.e12,
@@ -565,11 +596,17 @@ function doDoubleArc(
         ? MathUtils.degToRad(-incomingArcLength + finalOrientation.value - 90)
         : MathUtils.degToRad(90 + finalOrientation.value);
     modifyTurningArc(arcToFinal, distanceHC, incomingArcLength);
-    paths.value.push(
-      "Rotate " +
-        (isLeftRightArcs ? "CW" : "CCW") +
-        ` ${incomingArcLength.toFixed(2)} with radius ${distanceHC.toFixed(2)}`
-    );
+    // paths.value.push(
+    //   "Rotate " +
+    //     (isLeftRightArcs ? "CW" : "CCW") +
+    //     ` ${incomingArcLength.toFixed(2)} at ${dump2DPoint("R2", inCenter)}with radius ${distanceHC.toFixed(2)}`
+    // );
+    paths.value.push({
+      kind: "Rot",
+      x: -inCenter.e02/inCenter.e12,
+      y: inCenter.e01/inCenter.e12,
+      arcLength: isLeftRightArcs ? -incomingArcLength : incomingArcLength,
+    });
   } else {
     debugText.value += " cannot find incoming arc after 200 iterations";
     arcFromInitial.position.z = -100;
@@ -690,20 +727,28 @@ function doDoubleTurn(
       ? 180 - bisectorOrientation + initialOrientation.value
       : 180 + bisectorOrientation - initialOrientation.value
   );
-  const outArcDetails =
-    "Rotate " +
-    (isOutgoingArcCCW ? "CCW" : "CW") +
-    ` ${outgoingRotationArcLength.toFixed(
-      2
-    )} degrees with radius ${outgoingRotationRadius.toFixed(2)}`;
+  // const outArcDetails =
+  //   "Rotate " +
+  //   (isOutgoingArcCCW ? "CCW" : "CW") +
+  //   ` ${outgoingRotationArcLength.toFixed(
+  //     2
+  //   )} degrees at ${dump2DPoint("R1", outgoingRotationPivot)} with radius ${outgoingRotationRadius.toFixed(2)}`;
+  const outArcDetails: RotationPath = {
+    kind: "Rot",
+    x: -outgoingRotationPivot.e02/outgoingRotationPivot.e12,
+    y: outgoingRotationPivot.e01/outgoingRotationPivot.e12,
+    arcLength: outgoingRotationArcLength,
+  };
   if (isRotateThenTranslate) {
     paths.value.push(
       outArcDetails,
-      `Translate by ${translationDistance.toFixed(2)} units`
+      { kind: "Trans", distance: translationDistance }
+      // `Translate by ${translationDistance.toFixed(2)} units`
     );
   } else {
     paths.value.push(
-      `Translate by ${translationDistance.toFixed(2)} units`,
+      { kind: "Trans", distance: translationDistance },
+      // `Translate by ${translationDistance.toFixed(2)} units`,
       outArcDetails
     );
   }
@@ -725,12 +770,18 @@ function doDoubleTurn(
       ? finalOrientation.value - bisectorOrientation + 180
       : bisectorOrientation - finalOrientation.value + 180;
 
-  const inArcDetails =
-    "Rotate " +
-    (isOutgoingArcCCW ? "CW" : "CCW") +
-    ` ${incomingRotationArcLength.toFixed(
-      2
-    )} degrees with radius ${incomingRotationRadius.toFixed(2)}`;
+  // const inArcDetails =
+  //   "Rotate " +
+  //   (isOutgoingArcCCW ? "CW" : "CCW") +
+  //   ` ${incomingRotationArcLength.toFixed(
+  //     2
+  //   )} degrees at ${dump2DPoint("R2", rightPivot)} with radius ${incomingRotationRadius.toFixed(2)}`;
+  const inArcDetails: RotationPath = {
+    kind: "Rot",
+    x: -rightPivot.e02/rightPivot.e12,
+    y: -rightPivot.e01/rightPivot.e12,
+    arcLength: incomingRotationArcLength,
+  };
   incomingRotationArcLength = within360(incomingRotationArcLength);
   paths.value.push(inArcDetails);
   modifyTurningArc(
@@ -750,7 +801,15 @@ function findBikePath() {
     initialMarker.position.x,
     initialMarker.position.y
   );
-  const finalPoint = make2DPoint(finalMarker.position.x, finalMarker.position.y);
+  paths.value.push({
+    kind: "Start",
+    x: initialMarker.position.x,
+    y: initialMarker.position.y,
+  });
+  const finalPoint = make2DPoint(
+    finalMarker.position.x,
+    finalMarker.position.y
+  );
   // const iAngle = withinPi(initialMarker.rotation.z);
   const initialDirection = makeDirection(
     Math.cos(initialMarker.rotation.z),
@@ -812,7 +871,6 @@ function findBikePath() {
     ) {
       // If double arc is allowed and the path can be solved using double
       // arc, then we are done
-      return;
     } else {
       // We will be here when either double arcs is not allowed,
       // or attempt to use double arcs failed
@@ -826,7 +884,14 @@ function findBikePath() {
       );
     }
   }
+  paths.value.push({
+    kind: "End",
+    x: finalMarker.position.x,
+    y: finalMarker.position.y,
+  });
 }
+
+function executePlan() {}
 </script>
 <style scoped>
 #box {

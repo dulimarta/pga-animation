@@ -255,7 +255,7 @@ watch(
       if (showGeometry.value) removeVisualAccessories();
       // camera.position.set(0, -500, 700);
       // camera.lookAt(0, -200, 0);
-      cameraStart.set(WHEEL_RADIUS, -100, 63);
+      cameraStart.set(-1.8 * WHEEL_RADIUS, -100, 63);
       cameraEnd.set(0, -500, 700);
       cameraLine.set(cameraStart, cameraEnd);
       lookAtStart.set(WHEEL_BASE / 2, 0, 5);
@@ -279,7 +279,7 @@ watch(
     } else {
       if (showGeometry.value) addVisualAccessories();
       initializeSteeringGeometry();
-      camera.position.set(WHEEL_RADIUS, -100, 50);
+      camera.position.set(-1.8 * WHEEL_RADIUS, -100, 63);
       camera.lookAt(WHEEL_BASE / 2, 0, 5);
       scene.remove(camera);
       bike.add(camera);
@@ -304,8 +304,8 @@ watch(
   [() => bodyPosition.value, () => bodyRotation.value],
   ([position, orientation]: [Vector2, number]) => {
     // console.debug(`Changing bike position to (${position.x},${position.y})`);
-    // bike.position.x = position.x;
-    // bike.position.y = position.y;
+    bike.position.x = position.x;
+    bike.position.y = position.y;
     bike.rotation.z = orientation;
   },
   { deep: true }
