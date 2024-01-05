@@ -72,6 +72,10 @@
         return pNorm
       }
 
+      function pointToString(p) {
+        return `(${-p.e023.toFixed(2)},${p.e013.toFixed(2)},${p.e012.toFixed(2)}) scale=${p.e123.toFixed(2)}`
+      }
+
       function motorToString(m) {
         return `Scalar ${m[0].toFixed(3)}` + ` Trans (${m.e01.toFixed(3)},${m.e02.toFixed(3)},${m.e03.toFixed(3)})` +
           ` Rot (${m.e23.toFixed(3)},${m.e13.toFixed(3)},${m.e12.toFixed(3)})`
@@ -139,7 +143,7 @@
         const rotationAxis = fp.Wedge(rp).Normalized
         const rotationCtr = rotationAxis.Wedge(groundPlane)
         // const bikeDir = frontHub - rearHub
-        const targetBodyMotor = makeMotor(rotationAxis, rotationCtr.e123 !== 0 ? Math.PI : 20)
+        const targetBodyMotor = makeMotor(rotationAxis, rotationCtr.e123 !== 0 ? -Math.PI : 20)
         const currentToTarget = () => SquareRoot(bodyMotor.Mul(targetBodyMotor))
         const interpolatedMotor = lerp(currentToTarget(), tVal)
         const trh = interpolatedMotor >>> rearHub
@@ -151,7 +155,7 @@
           `Target Motor ${motorToString(targetBodyMotor)}`,
           `Sqrt Motor ${motorToString(currentToTarget())}`,
           // `Lerp time = ${tVal.toFixed(2)}`,
-          `Rot Axis ${rotationCtr}`,
+          `Rot Axis ${rotationAxis.toString()}`,
           `Interpolated Motor ${motorToString(interpolatedMotor)}`,
           // rh, "R",
           // 0xff6600, fh, "F",

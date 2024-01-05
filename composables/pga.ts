@@ -1,13 +1,4 @@
 import Algebra from "ganja.js";
-import {
-  Mesh,
-  MeshBasicMaterial,
-  Plane,
-  PlaneHelper,
-  Scene,
-  SphereGeometry,
-  Vector3,
-} from "three";
 const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
 // console.debug("In composable", PGA3D);
@@ -55,7 +46,7 @@ export function usePGA2D() {
     return d;
   }
   function parsePGAPoint(text: string, P: GAElement): string {
-    return `${text}: (${-(P.e02/P.e12).toFixed(2)},${(P.e01/P.e12).toFixed(2)})`;
+    return `${text}: (${-(P.e02/P.e12).toFixed(2)},${(P.e01/P.e12).toFixed(2)}) Scale ${P.e12.toFixed(2)}`;
   }
   return { makePoint, makeDirection, parsePGAPoint };
 }
@@ -134,7 +125,7 @@ export function usePGA3D() {
     // (moment_x, moment_y, moment_z; dir_x, dir_y, dir_z)
     // such that the moment vector is perpendicular to the direction vector
     // Get the moment of the line
-    // console.debug(text, "Raw data", lineEl, lineEl.toString())
+    console.debug(text, "Raw data", lineEl, lineEl.toString())
     const mx = lineEl.e01;
     const my = lineEl.e02;
     const mz = lineEl.e03;
@@ -170,6 +161,26 @@ export function usePGA3D() {
     );
   }
 
+  function sandwich(motor: GAElement, X: GAElement): GAElement {
+    return motor.Mul(X).Mul(motor.Reverse);
+  }
+  
+  function squareRootMotor(m: GAElement): GAElement {
+    const scalarPart = Math.sign(m.Grade(0)[0]);
+    return m.nVector(0, m.Grade(0)[0] + scalarPart).Normalized;
+  }
+
+  function lerp(m: GAElement, t: number): GAElement {
+    const scalarPart = Math.sign(m.Grade(0)[0]) * (1 - t);
+    let newMotor = PGA3D.Mul(t, m);
+    newMotor = newMotor.nVector(
+      0,
+      newMotor.Grade(0)[0] + scalarPart
+    ).Normalized;
+    return newMotor;
+  }
+
+
   return {
     makePoint,
     makeDirection,
@@ -181,5 +192,7 @@ export function usePGA3D() {
     parsePGAPoint,
     parsePGAMotor,
     isIdealLine,
+    sandwich,
+    squareRootMotor, lerp
   };
 }
