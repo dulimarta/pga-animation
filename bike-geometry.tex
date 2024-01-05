@@ -61,8 +61,10 @@ with respect to the two headings.
 In Figure~\ref{fig:path1turnacute}, the bike starts at point $A$ with its heading shown by
 the green arrow and its target is point $C$ with its heading shown by the red arrow,
 and both are pointing \textbf{in a general opposite direction}.
-The extending headings are shows by the dotted lines intersected at $E$.
-Line $EF$ is the angle bisector of the both heading lines, and point $F$ is the
+The extended headings are shown by the dotted lines intersected at $E$.
+Moving the bike from A to C can be solved with the help of a circular arc
+tangent to both extended heading lines. The center of such an arc must reside
+on the angle bisector (line $EF$) of $\angle AEC$, and point $F$ is the
 pivot of rotation.
 
 \begin{figure}[hbt]
@@ -87,12 +89,15 @@ pivot of rotation.
 \end{figure}
 
 
-There are two cases to consider:
+There are two cases to consider depending on the relative distance between 
+the starting and target points to the intersection $E$:
 \begin{itemize}
-  \item In Figure~\ref{fig:path1turnacute}a, when $|AE| < |CE|$, the bike first rotates from $A$ and $G$ around the
+  \item In Figure~\ref{fig:path1turnacute}a, when starting point $A$ is closer 
+  (or $|AE| < |CE|$), the bike first rotates from $A$ and $G$ around the
         pivot $F$  before it continues to translate from $G$ to $C$. The pivot of rotation $F$ is the perpendicular
         intersection from $A$ with the angle bisector.
-  \item In Figure~\ref{fig:path1turnacute}b, when $|AE| > |CE|$, the bike first translates from $A$ to $G$ before it
+  \item In Figure~\ref{fig:path1turnacute}b, the target point $C$ is closer (or $|AE| > |CE|$), 
+  the bike first translates from $A$ to $G$ before it
         continues to rotate from $G$ to $C$ around the pivot $F$. The pivot of rotation $F$ is determined
         by the perpendicular intersection from $C$ with the angle bisector.
 \end{itemize}
@@ -108,10 +113,11 @@ point (as shown in Figure~\ref{fig:path1turnobtuse}).
 \clearpage
 \subsection*{Double Turn Paths}
 When the two headings are generally pointing in the same direction, the path can be solved using one translation
-and two rotations. The first rotation is an outgoing turn from the start point and the second rotation is
-an incoming turn into the target point.
-Instead of using one angle bisector, the geometry requires three equal bisectors (as shown by 
-the three dashed lines). The second bisector (the center dashed line) defines a placeholder for an intermediate heading 
+and two rotations. The first rotation follows an outgoing arc from the start point and the second rotation follows
+an incoming arc into the target point.
+Instead of using \textbf{only one} angle bisector, the geometry requires \textbf{three equally spaced sectors or
+quadsector} 
+(as shown by the three dashed lines). The second quadsector line (the center dashed line) defines a placeholder for an intermediate heading 
 between the two the turn.
 
 \begin{figure}[hbt]
@@ -126,7 +132,7 @@ between the two the turn.
 \begin{itemize}
   \item When start is closer to the intersection $|AE| < |CE|$, the pivot of the
         outgoing turn at $F$ is determined from the perpendicular intersection from $A$
-        with the first 3-angle bisector.
+        with the first quadsector line
   \item When target is closer to the intersection point $|CE| < |AE|$, both
         pivots of rotation ($F$ and $G$, and $|EF| = |EG|$) are determined by the target point.
 \end{itemize}
@@ -187,8 +193,8 @@ apply binary search technique to find $\alpha$ that represents the exact locatio
 
 \subsection*{Sharper Double Arc Turns}
 
-When the target point $C$ is inside the outgoing circle (the largest blue circle in the diagram), the arc on the 
-original outgoing circle is not curvy enough to reach the target. To remedy the situation, we move the center $E$
+When the target point $C$ is inside the outgoing circle (the largest blue circle in Figure~\ref{fig:sharper-turns}), the arc on the 
+original outgoing blue circle from $A$ is not curvy enough to reach behind the target. To remedy the situation, we move the center $E$
 along the line $EM$ until $C$ is outside of the outgoing circle. The search begins by moving $E$ to $E_\text{mod}$, 
 the midpoint of $EM$. If the midpoint does not work, the search continues using progressively smaller fractional proportions 
 $f$, i.e. $\frac12, \frac13, \frac14, \frac15, \ldots$ with the point interpolation formula $$E_\text{mod} = (1-f)E + fA$$
@@ -199,6 +205,8 @@ These progressive proportions guarantee that $E$ is moving closer to $A$, hence 
 \includegraphics[width=6cm]{screenshots/DoubleArcModCenter.png} &
 \includegraphics[width=6cm]{screenshots/DoubleArcModCenterDiverging.png}
 \end{tabular}
+\caption{Sharper Double Arc Turns}
+\label{fig:sharper-turns}
 \end{figure}
 
 \end{document}

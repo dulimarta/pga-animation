@@ -19,6 +19,7 @@ export interface GAElement {
   Wedge(_: GAElement): GAElement;
   Mul(_: GAElement): GAElement;
   Grade(_: number): number[];
+  nVector(grade: number, ...args:number[]): GAElement
   get Dual(): GAElement;
   get Normalized(): GAElement;
   get Reverse(): GAElement;

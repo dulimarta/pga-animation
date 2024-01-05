@@ -17,7 +17,7 @@
       </v-row>
       <v-row>
         <v-col cols="6">
-          <span>Steer Direction</span>
+          <span>Steer Direction {{ steerAngleDegree }}&deg;</span>
         </v-col>
         <v-col>
           <v-btn @click="steerLeft" style="margin-right: 0.5em">
@@ -45,7 +45,8 @@ const {parsePGAMotor } = usePGA3D()
 const store = usePGAStore();
 const {
   driveWheelTorque,
-  steerVelocity,  
+  steerVelocity,
+  steerDirection,  
   brakeApplied,
   showGeometry,
   steerMotor, bodyMotor
@@ -57,6 +58,7 @@ const switchLabel = computed(() =>
   brakeApplied.value ? "Release brake" : "Apply brake"
 );
 
+const steerAngleDegree = computed(() => MathUtils.radToDeg(steerDirection.value).toFixed(2))
 infoText.value = parsePGAMotor("Body Motor", bodyMotor.value)
 watch([steerMotor, bodyMotor], ([s,b]: [GAElement,GAElement]) => {
   // console.debug("Steer motor changed", s.toString())

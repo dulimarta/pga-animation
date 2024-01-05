@@ -77,12 +77,15 @@
           ` Rot (${m.e23.toFixed(3)},${m.e13.toFixed(3)},${m.e12.toFixed(3)})`
       }
       function SquareRoot(motor) {
-        return (Math.sign(motor.Grade(0)) + motor).Normalized
+        const scalarSign = Math.sign(motor.Grade(0))
+        return motor.nVector(0, motor.Grade(0) +  scalarSign).Normalized
       }
+
       function lerp(motor, t) {
-        const scalarPart = Math.sign(motor.Grade(0)) * (1 - t)
-        const what = (PGA3D.Mul(t, motor) + scalarPart).Normalized 
-        return what
+        const scalarPart = Math.sign(motor.Grade(0)[0]) * (1 - t)
+        let newMotor = PGA3D.Mul(t, motor)
+        newMotor = newMotor.nVector(0, newMotor.Grade(0)[0] + scalarPart).Normalized
+        return newMotor
       }
       const origin = makePoint(0, 0, 0)
       // const sideDirection = makeDirection(0, 0, 1)
@@ -141,10 +144,12 @@
         const interpolatedMotor = lerp(currentToTarget(), tVal)
         const trh = interpolatedMotor >>> rearHub
         const tfh = interpolatedMotor >>> frontHub
+        // const what = PGA3D.nVector(0, 1).nVector(2, 10,20,30,0,0,0)
         return [
           `Body Motor ${motorToString(bodyMotor)}`,
           // `Steer Motor ${motorToString(steerMotor)}`, 
           `Target Motor ${motorToString(targetBodyMotor)}`,
+          `Sqrt Motor ${motorToString(currentToTarget())}`,
           // `Lerp time = ${tVal.toFixed(2)}`,
           `Rot Axis ${rotationCtr}`,
           `Interpolated Motor ${motorToString(interpolatedMotor)}`,

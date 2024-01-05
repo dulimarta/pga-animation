@@ -61,7 +61,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { usePGAStore } from "~/store/pga-store";
+import { PathSegment, RotationPath, TranslationPath, usePGAStore } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
 import { MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
 import { useVisualStore } from "~/store/visual-store";
@@ -71,44 +71,27 @@ import { GAElement } from "~/composables/pga";
 const controlKey = useKeyModifier("Control", { events: ["mousemove"] });
 const altKey = useKeyModifier("Alt", { events: ["mousemove"] });
 
-type SegmentType = {
-  kind: "Rot" | "Trans" | "Start" | "End";
-};
-type RotationPath = SegmentType & {
-  // kind: SegmentType,
-  x: number;
-  y: number;
-  arcLength: number;
-};
-
-type TranslationPath = SegmentType & {
-  distance: number;
-};
-type Terminal = SegmentType & {
-  x: number;
-  y: number;
-};
-type PathSegment = RotationPath | TranslationPath | Terminal;
 const {
   makePoint: make2DPoint,
-  makeDirection,
+  makeDirection: make2DDirection,
   parsePGAPoint: dump2DPoint,
 } = usePGA2D();
-// const { makePoint: make3DPoint } = usePGA3D();
+const { makeDirection: make3DDirection, makeScalar, parsePGAMotor, makePoint: make3DPoint } = usePGA3D();
 const MARKER_LENGTH = 50;
 const PATH_THICKNESS = 2.5;
 const store = usePGAStore();
 const visualStore = useVisualStore();
 const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
-const { runMode, bodyPosition, bodyRotation } = storeToRefs(store);
+const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
+const { runMode, bodyPosition, bodyRotation, bodyMotor, paths } = storeToRefs(store);
 const { makeArrow, makeSphere, makePipe, makeArc } = visualStore;
 const { visualScene, mousePositionOnGround, mouseWheelScrollAmount } =
   storeToRefs(visualStore);
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
-const useDoubleArcs = ref(false);
-const useSharperTurns = ref(false);
+const useDoubleArcs = ref(true);
+const useSharperTurns = ref(true);
 const parallelWarning = ref(false);
 const initialMarker = makeArrow(MARKER_LENGTH * 1.7, 4, "green");
 const finalMarker = makeArrow(MARKER_LENGTH, 4, "red");
@@ -122,7 +105,6 @@ const transitionSphere2 = makeSphere(8, "white");
 const transitionPipe = makePipe(1, PATH_THICKNESS, "white");
 const arcFromInitial = makeArc(1, PATH_THICKNESS, 90, "white");
 const arcToFinal = makeArc(1, PATH_THICKNESS, 90, "white");
-const paths: Ref<Array<PathSegment>> = ref([]);
 
 onMounted(() => {
   visualScene.value?.add(initialMarker);
@@ -148,7 +130,7 @@ onMounted(() => {
 
 watch(
   () => runMode.value,
-  (mode: "plan" | "run") => {
+  (mode: "plan" | "run" | "execute") => {
     if (mode === "run") {
       visualScene.value?.remove(initialMarker);
       visualScene.value?.remove(finalMarker);
@@ -347,8 +329,8 @@ function doSingleTurn(
     arcLength: rotateAmount,
   };
   if (isRotateThenTranslate)
-    paths.value.push(rotationSegment, { kind: "Trans", distance: 0 });
-  else paths.value.push({ kind: "Trans", distance: 0 }, rotationSegment);
+    paths.value.push(rotationSegment, { kind: "Trans", distance: translateDistance });
+  else paths.value.push({ kind: "Trans", distance: translateDistance }, rotationSegment);
   rotationPivotSphere.position.set(
     -pivotOfRotation.e02 / pivotOfRotation.e12,
     pivotOfRotation.e01 / pivotOfRotation.e12,
@@ -801,22 +783,22 @@ function findBikePath() {
     initialMarker.position.x,
     initialMarker.position.y
   );
-  paths.value.push({
-    kind: "Start",
-    x: initialMarker.position.x,
-    y: initialMarker.position.y,
-  });
+  // paths.value.push({
+  //   kind: "Start",
+  //   x: initialMarker.position.x,
+  //   y: initialMarker.position.y,
+  // });
   const finalPoint = make2DPoint(
     finalMarker.position.x,
     finalMarker.position.y
   );
   // const iAngle = withinPi(initialMarker.rotation.z);
-  const initialDirection = makeDirection(
+  const initialDirection = make2DDirection(
     Math.cos(initialMarker.rotation.z),
     Math.sin(initialMarker.rotation.z)
   );
   // const fAngle = withinPi(finalMarker.rotation.z);
-  const finalDirection = makeDirection(
+  const finalDirection = make2DDirection(
     Math.cos(finalMarker.rotation.z),
     Math.sin(finalMarker.rotation.z)
   );
@@ -826,7 +808,7 @@ function findBikePath() {
 
   // pathDistance.value = initialPoint.Vee(finalPoint).Length;
   if (Math.abs(intersection.e12) < 1e-5) {
-    console.debug("Parallel line");
+    // console.debug("Parallel line");
     debugText.value = "Parallel lines";
     parallelWarning.value = true;
     return;
@@ -884,14 +866,23 @@ function findBikePath() {
       );
     }
   }
-  paths.value.push({
-    kind: "End",
-    x: finalMarker.position.x,
-    y: finalMarker.position.y,
-  });
+  // paths.value.push({
+  //   kind: "End",
+  //   x: finalMarker.position.x,
+  //   y: finalMarker.position.y,
+  // });
 }
 
-function executePlan() {}
+
+function executePlan() {
+  runMode.value = 'execute'
+  // paths.value.forEach((s: PathSegment) => {
+  //   if (s.kind === 'Trans') {
+  //   } else if (s.kind == 'Rot') {
+
+  //   }
+  // })
+}
 </script>
 <style scoped>
 #box {
