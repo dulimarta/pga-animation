@@ -1,4 +1,5 @@
 import Algebra from "ganja.js";
+import { MathUtils } from "three";
 const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
 // console.debug("In composable", PGA3D);
@@ -48,7 +49,14 @@ export function usePGA2D() {
   function parsePGAPoint(text: string, P: GAElement): string {
     return `${text}: (${-(P.e02/P.e12).toFixed(2)},${(P.e01/P.e12).toFixed(2)}) Scale ${P.e12.toFixed(2)}`;
   }
-  return { makePoint, makeDirection, parsePGAPoint };
+  function lineSlopeInRadian(line: GAElement): number {    
+    const b = line.e2
+    const a = line.e1
+    const length = Math.sqrt(a*a + b*b)
+    return Math.atan2(-line.e1/length, -line.e2/length)
+  }
+
+  return { makePoint, makeDirection, parsePGAPoint, lineSlopeInRadian };
 }
 
 export function usePGA3D() {

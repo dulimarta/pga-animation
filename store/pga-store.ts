@@ -3,9 +3,10 @@ import { Vector2 } from "three";
 const { makeScalar, makePoint, makePlane } = usePGA3D();
 
 export type SegmentType = {
-  kind: "Rot" | "Trans"; //| "Start" | "End";
+  kind: "Rot" | "Trans" | "Final"; //| "Start";
   startX: number,
   startY: number
+  startHeading: number
 };
 export type RotationPath = SegmentType & {
   // kind: SegmentType,
@@ -22,13 +23,13 @@ export type TranslationPath = SegmentType & {
 //   x: number;
 //   y: number;
 // };
-export type PathSegment = RotationPath | TranslationPath; //| Terminal;
+export type PathSegment = SegmentType | RotationPath | TranslationPath; //| Terminal;
 export const usePGAStore = defineStore("pga", () => {
   const driveWheelTorque = ref(0); /* Newton-M */
   const steerVelocity = ref(0);
   const steerDirection = ref(0) /* in radians */
   // const rigidRotationAngleDebug = ref(0)
-  const bodyRotation = ref(Math.PI/5); // in radians
+  const bodyRotation = ref(0); // in radians
   const bodyPosition: Ref<Vector2> = ref(new Vector2());
   const brakeApplied = ref(false);
   const showGeometry = ref(true);
