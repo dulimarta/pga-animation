@@ -30,6 +30,7 @@ import {
   DoubleSide,
   Raycaster,
   Line3,
+  Clock,
   PointLightHelper,
   AxesHelper,
 } from "three";
@@ -40,13 +41,14 @@ import {
   TranslationPath,
   usePGAStore,
 } from "~/store/pga-store";
-import CameraControls from "camera-controls";
+// import CameraControls from "camera-controls";
 import { useVisualStore } from "~/store/visual-store";
 import { storeToRefs } from "pinia";
-import { useWindowSize } from "@vueuse/core";
+import {
+  useWindowSize,
+} from "@vueuse/core";
 import { GAElement } from "~/composables/pga";
 import Algebra from "ganja.js";
-import { createScanner } from "typescript";
 const {
   makePoint,
   makeDirection,
@@ -60,6 +62,7 @@ const {
   sandwich,
   lerp,
 } = usePGA3D();
+const TIMER = new Clock()
 const glcanvas: Ref<HTMLCanvasElement | null> = ref(null);
 const GROUND_SIZE = 1000;
 const PGAStore = usePGAStore();
@@ -77,10 +80,10 @@ const TOTAL_INERTIA =
 
 const WHEEL_RADIUS = TIRE_RADIUS + TIRE_TUBE_RADIUS;
 const ALPHA = 0.5; // Input averaging factor
-CameraControls.install({ THREE });
+// CameraControls.install({ THREE });
 let camera: PerspectiveCamera;
 let animationFrameHandle: number | null = null;
-let {
+const {
   driveWheelTorque,
   steerVelocity,
   steerDirection,
@@ -180,7 +183,9 @@ const rearSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "red");
 // Create a plane thru the rear wheel hub, perpendicular to the normal
 const upDirection = makeDirection(0, 0, 1);
 let steeringAxis = frontHub.value.Vee(upDirection).Normalized;
-let currentDestinationX:number, currentDestinationY:number
+let travelDistanceSoFar = 0;
+let travelDistanceRequired = 0;
+
 // parsePGALine("Steering Axis", steeringAxis);
 // let steerMotor = makeScalar(1);
 // let bodyMotor = makeScalar(1);
@@ -261,14 +266,30 @@ watch(
       case "execute":
         // The path array should have at least two elements, the first
         // path and the end point
+        console.debug("Generated path plan", paths.value);
         if (paths.value.length > 1) {
-          driveWheelAngularVelocity = -3;
-          const firstPath = paths.value[0]
-          currentDestinationX = paths.value[1].startX
-          currentDestinationY = paths.value[1].startY
+          const WHEEL_SPEED_RPM = 20;
+          // Convert RPM to rads/second
+          driveWheelAngularVelocity = (WHEEL_SPEED_RPM * Math.PI) / 30;
+          const firstPath = paths.value[0];
+          // First attempt only for translational segments
+          bikeRigidRotationAxis = sandwich(
+            steerMotor.value,
+            frontWheelPlane.value
+          ).Wedge(rearWheelPlane.value).Normalized;
 
-          if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
-          updateGraphicsForExecutor(performance.now());
+          bodyMotor.value = makeScalar(1)
+          console.debug(
+            parsePGAMotor("Body motor for path-0", bodyMotor.value)
+          );
+          if (firstPath.kind === "Trans") {
+            const t = firstPath as TranslationPath;
+            travelDistanceSoFar = 0;
+            travelDistanceRequired = t.distance * INCH_TO_METER;
+            if (animationFrameHandle)
+              cancelAnimationFrame(animationFrameHandle);
+            updateGraphicsForExecutor(performance.now());
+          }
           glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
           glcanvas.value?.removeEventListener("wheel", trackWheel);
         }
@@ -281,9 +302,6 @@ watch(
         frontPlaneHelper.size = 1;
         rearPlaneHelper.size = 1;
         // break
-        // if (animationFrameHandle)
-        //   cancelAnimationFrame(animationFrameHandle)
-        // updateGraphicsForExecutor(previousTimeStamp)
         // if (showGeometry.value) addVisualAccessories();
         // initializeSteeringGeometry(
         //   bodyPosition.value.x,
@@ -316,6 +334,7 @@ watch(
   [() => bodyPosition.value, () => bodyRotation.value],
   ([position, orientation]: [Vector2, number]) => {
     if (runMode.value === "plan") {
+      console.debug('this should not happen in execute mode')
       bodyMotor.value = makeScalar(1);
       steerMotor.value = makeScalar(1);
       // console.debug(`Changing bike position to (${position.x},${position.y})`);
@@ -330,6 +349,9 @@ watch(
         frontHub.value.e013 / frontHub.value.e123,
         -frontHub.value.e012
       );
+    } else {
+      console.debug('body watcher ', runMode.value)
+
     }
   },
   { deep: true }
@@ -339,7 +361,7 @@ onBeforeMount(() => {
   initializeSteeringGeometry(13, 0, bodyRotation.value);
 });
 
-let cameraControls: CameraControls;
+// let cameraControls: CameraControls;
 onMounted(async () => {
   const floorTexture = await textureLoader.loadAsync("floor-wood.jpg");
   floorTexture.wrapS = RepeatWrapping;
@@ -394,7 +416,7 @@ onMounted(async () => {
   // );
 
   renderer.setClearColor(Math.random() * 0xffffff, 1);
-  cameraControls = new CameraControls(camera, renderer.domElement);
+  // cameraControls = new CameraControls(camera, renderer.domElement);
 
   handleResize();
   if (showGeometry.value) {
@@ -506,7 +528,6 @@ function makeAuxPlane(
     pgaPlane.e0
   );
   const pH = new PlaneHelper(p, WHEEL_RADIUS, color ?? 0x888888);
-  console.debug("Helper position", pH.position);
   return [p, pH];
 }
 
@@ -593,7 +614,8 @@ function updateGraphicsForPlanner(timeStamp: number) {
 
 function updateMotors(driveWheelAngleGain: number) {
   const linearDistanceGain =
-    driveWheelAngleGain * (WHEEL_RADIUS + TIRE_TUBE_RADIUS) * INCH_TO_METER;
+    driveWheelAngleGain * WHEEL_RADIUS * INCH_TO_METER;
+  // console.debug(`UpdateMotors: linear distance gain ${linearDistanceGain.toFixed(3)}`)
   let motionAmount = 0;
   if (Math.abs(steerDirection.value) < 1e-5) {
     // Translational motion
@@ -615,7 +637,7 @@ function updateMotors(driveWheelAngleGain: number) {
 }
 
 function updateGraphicsForExecutor(timeMilliSec: number) {
-  const elapsed = (timeMilliSec - previousTimeStamp) / 1000;
+  const elapsed = TIMER.getDelta()
 
   if (driveWheelAngularVelocity !== 0) {
     // console.debug(
@@ -629,22 +651,35 @@ function updateGraphicsForExecutor(timeMilliSec: number) {
     bike.position.x = -rh.e023 / rh.e123;
     bike.position.y = rh.e013 / rh.e123;
     bike.rotation.z = -bodyRotation.value;
-    const rp = sandwich(bodyMotor.value, rearWheelPlane.value);
+    const rp = sandwich(bodyMotor.value, rearWheelPlane.value).Normalized;
     rearPlane.normal.set(rp.e1, rp.e2, rp.e3);
     rearPlane.constant = rp.e0;
     frontSphere.position.set(-fh.e023 / fh.e123, fh.e013 / fh.e123, -fh.e012);
     rearSphere.position.set(-rh.e023 / rh.e123, rh.e013 / rh.e123, -rh.e012);
     const fp = sandwich(
       bodyMotor.value,
-      sandwich(steerMotor.value, frontWheelPlane.value)
-    );
+      sandwich(steerMotor.value, frontWheelPlane.value).Normalized
+    ).Normalized;
     frontPlane.normal.set(fp.e1, fp.e2, fp.e3);
     frontPlane.constant = fp.e0;
+    const distanceGained = driveWheelAngularVelocity * WHEEL_RADIUS * elapsed * INCH_TO_METER;
+    // console.debug(`Executor linear distance gain ${distanceGained.toFixed(3)}`)
+    travelDistanceSoFar += distanceGained;
+    // console.debug(
+    //   `Path progress ${travelDistanceSoFar.toFixed(
+    //     2
+    //   )} of ${travelDistanceRequired.toFixed(2)}`
+    // );
+    if (travelDistanceSoFar >= travelDistanceRequired) {
+      driveWheelAngularVelocity = 0;
+      console.debug("Got it to current target");
+      runMode.value = 'plan'
+    }
   }
   animationFrameHandle = requestAnimationFrame((t) =>
     updateGraphicsForExecutor(t)
   );
-  previousTimeStamp = timeMilliSec;
+  // previousTimeStamp = timeMilliSec;
   renderer.render(scene, camera);
 }
 
@@ -683,9 +718,9 @@ function updateGraphics(timeStamp: number) {
     frontWheelPlaneMesh.scale.y = 0;
     rearWheelPlaneMesh.scale.y = 0;
   }
-  const hasControlUpdated = cameraControls.update(
-    timeStamp - previousTimeStamp
-  );
+  // const hasControlUpdated = cameraControls.update(
+  //   timeStamp - previousTimeStamp
+  // );
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
   previousTimeStamp = timeStamp;
 

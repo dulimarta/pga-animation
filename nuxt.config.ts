@@ -5,6 +5,10 @@ import {createResolver} from "@nuxt/kit"
 const {resolve} = createResolver(import.meta.url)
 export default defineNuxtConfig({
   devtools: { enabled: true },
+  sourcemap: {
+    client: false,
+    server: true
+  },
   css: [
     "vuetify/lib/styles/main.sass",
     "@mdi/font/css/materialdesignicons.min.css",

@@ -312,11 +312,11 @@ function translateThenRotate(
   const tangentY = iPost.e01 / iPost.e12;
   transitionSphere.position.set(tangentX, tangentY, 0);
   const translationDistance =
-    initialPoint.Normalized.Vee(iPost.Normalized).Length - MARKER_LENGTH;
+    initialPoint.Normalized.Vee(iPost.Normalized).Length;
   transitionPipe.position.set(-iPost.e02 / iPost.e12, iPost.e01 / iPost.e12, 0);
   transitionPipe.rotation.z = MathUtils.degToRad(initialOrientation.value + 90);
-  transitionPipe.translateY(translationDistance / 2);
-  transitionPipe.scale.y = translationDistance;
+  transitionPipe.translateY((translationDistance - MARKER_LENGTH)/ 2);
+  transitionPipe.scale.y = translationDistance - MARKER_LENGTH;
 
   // The tangent point is also the starting point of the arc
   return [translationDistance, [tangentX, tangentY], pivot, turnRad];
@@ -385,17 +385,12 @@ function doSingleTurn(
     ] = translateThenRotate(initialPoint, finalPoint, initialLine, finalLine, bisector);
     isRotateThenTranslate = false;
   }
-  const rotationDetails =
-    "Rotate 310 " +
-    (isCCW ? "CCW" : "CW") +
-    ` ${rotateAmount.toFixed(1)} degrees at ${dump2DPoint(
-      "R1",
-      pivotOfRotation
-    )} with radius ${radiusOfRotation.toFixed(2)}`;
   const pivotX = -pivotOfRotation.e02 / pivotOfRotation.e12;
   const pivotY = pivotOfRotation.e01 / pivotOfRotation.e12;
   const startX = -initialPoint.e02 / initialPoint.e12;
   const startY = initialPoint.e01 / initialPoint.e12;
+  const tDist = Math.sqrt(Math.pow(startX - tangentX, 2) + Math.pow(startY - tangentY, 2))
+  console.debug(`translateThenRotate distance ${tDist.toFixed(2)} ${translateDistance.toFixed(2)}`)
   const rotationSegment: RotationPath = {
     kind: "Rot",
     centerX: pivotX,
