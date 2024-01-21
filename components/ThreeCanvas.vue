@@ -232,10 +232,12 @@ scene.add(rotAxisObj);
 watch(
   () => runMode.value,
   (
-    currentMode: "plan" | "run" | "execute",
-    prevMode: "plan" | "run" | "execute"
+    currentMode: "plan" | "manual-control" | "autonomous",
+    prevMode: "plan" | "manual-control" | "autonomous"
   ) => {
     console.debug(`Switch run mode from "${prevMode}" to "${currentMode}"`);
+    bike.remove(camera)
+    scene.remove(camera)
     switch (currentMode) {
       case "plan":
         if (animationFrameHandle !== null) {
@@ -259,7 +261,7 @@ watch(
         lookAtStart.set(WHEEL_BASE / 2, 0, 5);
         lookAtEnd.set(0, -200, 0);
         lookAtLine.set(lookAtStart, lookAtEnd);
-        bike.remove(camera);
+        // bike.remove(camera);
         scene.add(camera);
         let t = 0;
         const cameraTimer = setInterval(() => {
@@ -275,7 +277,7 @@ watch(
         glcanvas.value?.addEventListener("mousemove", trackMouseIn3D);
         glcanvas.value?.addEventListener("wheel", trackWheel);
         break;
-      case "execute":
+      case "autonomous":
         // The path array should have at least two elements, the first
         // path and the end point
         console.debug("Generated path plan", paths.value);
@@ -291,13 +293,16 @@ watch(
           updateGraphicsForExecutor(performance.now());
           glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
           glcanvas.value?.removeEventListener("wheel", trackWheel);
+          camera.position.set(-2 * WHEEL_RADIUS, 20, 63)
+          camera.lookAt (WHEEL_BASE, 10, WHEEL_RADIUS)
+          bike.add(camera)
         } else {
           activePathIndex = -1;
           activePath = null;
           nextPath = null;
         }
         break;
-      case "run":
+      case "manual-control":
         if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
         updateGraphics(performance.now());
         frontWheelPlaneMesh.position.z = WHEEL_RADIUS / 2;
@@ -313,7 +318,7 @@ watch(
         // );
         camera.position.set(-1.8 * WHEEL_RADIUS, -100, 63);
         camera.lookAt(WHEEL_BASE / 2, 0, 5);
-        scene.remove(camera);
+        // scene.remove(camera);
         bike.add(camera);
         glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
         glcanvas.value?.removeEventListener("wheel", trackWheel);
@@ -451,12 +456,14 @@ function configureGeometryForNewPath(p: PathSegment) {
     steerDirection.value = Math.atan2(WHEEL_BASE, r.radius) * Math.sign(r.arcAngleDegree)
     steerMotor.value = makeRotor(steeringAxis, steerDirection.value)
   }
+  mysteeringFork.rotation.z = steerDirection.value
   travelDistanceSoFar = 0
   bikeRigidRotationAxis = sandwich(
     steerMotor.value,
     frontWheelPlane.value
   ).Wedge(rearWheelPlane.value).Normalized;
 }
+
 function initializeSteeringGeometry(
   bikeX: number,
   bikeY: number,
@@ -666,8 +673,8 @@ function updateGraphicsForExecutor(timeMilliSec: number) {
     updateMotors(driveWheelAngularVelocity * elapsed);
     const rh = sandwich(bodyMotor.value, rearHub.value).Normalized;
     const fh = sandwich(bodyMotor.value, frontHub.value).Normalized;
-    driveWheel.rotation.z = driveWheelAngle;
-    steeringWheel.rotation.z = steeringWheelAngle;
+    driveWheel.rotation.z = -driveWheelAngle;
+    steeringWheel.rotation.z = -steeringWheelAngle;
     bike.position.x = -rh.e023 / rh.e123;
     bike.position.y = rh.e013 / rh.e123;
     bike.rotation.z = -bodyRotation.value;

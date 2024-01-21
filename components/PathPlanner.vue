@@ -145,8 +145,8 @@ onMounted(() => {
 
 watch(
   () => runMode.value,
-  (mode: "plan" | "run" | "execute") => {
-    if (mode === "run") {
+  (mode: "plan" | "manual-control" | "autonomous") => {
+    if (mode === "manual-control") {
       // visualScene.value?.remove(initialMarker);
       // visualScene.value?.remove(finalMarker);
       // visualScene.value?.remove(transitionSphere);
@@ -500,6 +500,7 @@ function doDoubleArc(
   if (distanceEC < outgoingRadius) {
     // Target is inside the outgoing circle,
     // We will attempt to move the center of the circle
+    // closer to the start point (i.e. sharper outgoing radius)
     if (useSharperTurns.value) {
       if (outCenter.e12 < 0) {
         modifiedOutgoingArcCenter = true;
@@ -680,6 +681,7 @@ function doDoubleArc(
     //     (isLeftRightArcs ? "CW" : "CCW") +
     //     ` ${incomingArcAngle.toFixed(2)} at ${dump2DPoint("R2", inCenter)}with radius ${distanceHC.toFixed(2)}`
     // );
+    const inComingStartHeading = - (lineSlopeInRadian(perpTangent) + Math.PI/2)
     paths.value.push({
       kind: "Rot", // Incoming arc
       centerX: -inCenter.e02 / inCenter.e12,
@@ -688,7 +690,7 @@ function doDoubleArc(
       radius: distanceHC,
       startX: tangentX,
       startY: tangentY,
-      startHeading: - (lineSlopeInRadian(perpTangent) + Math.PI/2)
+      startHeading: intersectionToFinalDistance > 0 ? inComingStartHeading : Math.PI - inComingStartHeading
     });
   } else {
     debugText.value += " cannot find incoming arc after 200 iterations";
@@ -1012,7 +1014,7 @@ function findBikePath() {
 }
 
 function executePlan() {
-  runMode.value = "execute";
+  runMode.value = "autonomous";
   // paths.value.forEach((s: PathSegment) => {
   //   if (s.kind === 'Trans') {
   //   } else if (s.kind == 'Rot') {

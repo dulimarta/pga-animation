@@ -34,7 +34,7 @@ export const usePGAStore = defineStore("pga", () => {
   const brakeApplied = ref(false);
   const showGeometry = ref(true);
   const bikeInMotion = ref(false);
-  const runMode: Ref<"plan" | "run" | "execute"> = ref("run");
+  const runMode: Ref<"plan" | "manual-control" | "autonomous"> = ref("manual-control");
   const steerMotor: Ref<GAElement> = ref(makeScalar(1));
   const bodyMotor: Ref<GAElement> = ref(makeScalar(1));
   const rearHub: Ref<GAElement> = ref(makePoint(0, 0, 0))
