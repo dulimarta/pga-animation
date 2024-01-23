@@ -26,7 +26,7 @@ let ctx: CanvasRenderingContext2D;
 const props = defineProps<ComponentProps>();
 const CANVAS_SIZE = 400
 watch([() => props.xValue, () => props.yValue], ([x, y], [oldX, oldY]) => {
-  if (runMode.value !== 'run') return
+  if (runMode.value !== 'manual-control') return
   ctx.beginPath();
   ctx.fillStyle = 'red'
   ctx.arc(

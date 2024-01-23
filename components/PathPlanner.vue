@@ -44,6 +44,9 @@
       @click="executePlan"
       >Execute</v-btn
     >
+    <v-btn class="ml-2" :disabled="paths.length === 0" @click="resetExecutor"
+      >Restart</v-btn
+    >
     <v-textarea label="Debugging output" v-model="debugText"></v-textarea>
     <!-- Snackbar timeout:-1 to keep it shown indefinitely -->
     <ul>
@@ -79,13 +82,15 @@ const {
   makePoint: make2DPoint,
   makeDirection: make2DDirection,
   parsePGAPoint: dump2DPoint,
-  lineSlopeInRadian
+  lineSlopeInRadian,
 } = usePGA2D();
 const {
   makeDirection: make3DDirection,
   makeScalar,
   parsePGAMotor,
-  makePoint: make3DPoint, lerp, sandwich
+  makePoint: make3DPoint,
+  lerp,
+  sandwich,
 } = usePGA3D();
 const MARKER_LENGTH = 50;
 const PATH_THICKNESS = 2.5;
@@ -95,7 +100,7 @@ const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
 const { runMode, bodyPosition, bodyRotation, bodyMotor, paths, rearHub } =
   storeToRefs(store);
-  const {selectActivePath} = usePathExecutor(paths)
+const { selectActivePath } = usePathExecutor(paths);
 
 const { makeArrow, makeSphere, makePipe, makeArc } = visualStore;
 const { visualScene, mousePositionOnGround, mouseWheelScrollAmount } =
@@ -105,8 +110,8 @@ const initialOrientation = ref(0);
 const finalOrientation = ref(0);
 const useDoubleArcs = ref(true);
 const useSharperTurns = ref(true);
-const selectedPath = ref(0)
-const tValue = ref(0)
+const selectedPath = ref(0);
+const tValue = ref(0);
 const parallelWarning = ref(false);
 const initialMarker = makeArrow(MARKER_LENGTH * 1.7, 4, "green");
 const finalMarker = makeArrow(MARKER_LENGTH, 4, "red");
@@ -120,7 +125,7 @@ const transitionSphere2 = makeSphere(8, "white");
 const transitionPipe = makePipe(1, PATH_THICKNESS, "white");
 const arcFromInitial = makeArc(1, PATH_THICKNESS, 90, "white");
 const arcToFinal = makeArc(1, PATH_THICKNESS, 90, "white");
-let motorInterpolator: GAElement|null = null
+let motorInterpolator: GAElement | null = null;
 onMounted(() => {
   visualScene.value?.add(initialMarker);
   visualScene.value?.add(finalMarker);
@@ -179,16 +184,15 @@ watch(
 );
 
 watch(selectedPath, (sel: number) => {
-  const sx = paths.value[sel].startX
-  const sy = paths.value[sel].startY
-  tValue.value = 0
-  bodyPosition.value.x = sx
-  bodyPosition.value.y = sy
-  bodyRotation.value = -paths.value[sel].startHeading
-  rearHub.value = make3DPoint(sx, sy, 0)
-  motorInterpolator = selectActivePath(sel)
-})
-
+  const sx = paths.value[sel].startX;
+  const sy = paths.value[sel].startY;
+  tValue.value = 0;
+  bodyPosition.value.x = sx;
+  bodyPosition.value.y = sy;
+  bodyRotation.value = -paths.value[sel].startHeading;
+  rearHub.value = make3DPoint(sx, sy, 0);
+  motorInterpolator = selectActivePath(sel);
+});
 
 let lastMouseWheelScrollAmount = 0;
 watch(
@@ -220,15 +224,14 @@ watch(
 );
 
 function tValueChanged(t: number) {
-  console.debug(`Interpolating motion to ${t.toFixed(2)} `)
+  console.debug(`Interpolating motion to ${t.toFixed(2)} `);
   if (motorInterpolator !== null) {
-    const appliedMotor = lerp(motorInterpolator, t)
+    const appliedMotor = lerp(motorInterpolator, t);
     const rh = sandwich(appliedMotor, rearHub.value).Normalized;
-      bodyPosition.value.x = -rh.e023 / rh.e123;
-      bodyPosition.value.y = rh.e013 / rh.e123;
-
+    bodyPosition.value.x = -rh.e023 / rh.e123;
+    bodyPosition.value.y = rh.e013 / rh.e123;
   } else {
-    console.error("No motor available")
+    console.error("No motor available");
   }
 }
 function withinPlusMinus180(x: number): number {
@@ -244,24 +247,25 @@ function within360(x: number) {
 }
 
 function parsePath(p: PathSegment): string {
-  const commonText = `${p.kind} Start (${p.startX.toFixed(
-    2
-  )},${p.startY.toFixed(2)})` + ` Heading:${MathUtils.radToDeg(p.startHeading).toFixed(1)} deg`;
+  const commonText =
+    `${p.kind} Start (${p.startX.toFixed(2)},${p.startY.toFixed(2)})` +
+    ` Heading:${MathUtils.radToDeg(p.startHeading).toFixed(2)} deg`;
   let specificText = "";
   if (p.kind === "Trans") {
     const t = p as TranslationPath;
     specificText = `D=${t.distance.toFixed(2)}`;
-  } else if (p.kind === 'Rot') {
+  } else if (p.kind === "Rot") {
     const r = p as RotationPath;
     specificText = `Center:(${r.centerX.toFixed(2)},${r.centerY.toFixed(
       2
     )}) Radius:${r.radius.toFixed(2)} Arc Angle:${r.arcAngleDegree.toFixed(
-      0
+      2
     )} deg`;
   } else {
-    return `Final at (${p.startX.toFixed(
-    2
-  )},${p.startY.toFixed(2)})` + ` Heading:${MathUtils.radToDeg(p.startHeading).toFixed(1)} deg`
+    return (
+      `Final at (${p.startX.toFixed(2)},${p.startY.toFixed(2)})` +
+      ` Heading:${MathUtils.radToDeg(p.startHeading).toFixed(2)} deg`
+    );
   }
   return commonText + " " + specificText;
 }
@@ -311,11 +315,12 @@ function translateThenRotate(
   const tangentX = -iPost.e02 / iPost.e12;
   const tangentY = iPost.e01 / iPost.e12;
   transitionSphere.position.set(tangentX, tangentY, 0);
-  const translationDistance =
-    initialPoint.Normalized.Vee(iPost.Normalized).Length;
+  const translationDistance = initialPoint.Normalized.Vee(
+    iPost.Normalized
+  ).Length;
   transitionPipe.position.set(-iPost.e02 / iPost.e12, iPost.e01 / iPost.e12, 0);
   transitionPipe.rotation.z = MathUtils.degToRad(initialOrientation.value + 90);
-  transitionPipe.translateY((translationDistance - MARKER_LENGTH)/ 2);
+  transitionPipe.translateY((translationDistance - MARKER_LENGTH) / 2);
   transitionPipe.scale.y = translationDistance - MARKER_LENGTH;
 
   // The tangent point is also the starting point of the arc
@@ -374,7 +379,13 @@ function doSingleTurn(
       radiusOfRotation,
       [tangentX, tangentY],
       translateDistance,
-    ] = rotateThenTranslate(initialPoint, finalPoint, initialLine, finalLine, bisector);
+    ] = rotateThenTranslate(
+      initialPoint,
+      finalPoint,
+      initialLine,
+      finalLine,
+      bisector
+    );
     isRotateThenTranslate = true;
   } else {
     [
@@ -382,15 +393,27 @@ function doSingleTurn(
       [tangentX, tangentY],
       pivotOfRotation,
       radiusOfRotation,
-    ] = translateThenRotate(initialPoint, finalPoint, initialLine, finalLine, bisector);
+    ] = translateThenRotate(
+      initialPoint,
+      finalPoint,
+      initialLine,
+      finalLine,
+      bisector
+    );
     isRotateThenTranslate = false;
   }
   const pivotX = -pivotOfRotation.e02 / pivotOfRotation.e12;
   const pivotY = pivotOfRotation.e01 / pivotOfRotation.e12;
   const startX = -initialPoint.e02 / initialPoint.e12;
   const startY = initialPoint.e01 / initialPoint.e12;
-  const tDist = Math.sqrt(Math.pow(startX - tangentX, 2) + Math.pow(startY - tangentY, 2))
-  console.debug(`translateThenRotate distance ${tDist.toFixed(2)} ${translateDistance.toFixed(2)}`)
+  const tDist = Math.sqrt(
+    Math.pow(startX - tangentX, 2) + Math.pow(startY - tangentY, 2)
+  );
+  console.debug(
+    `translateThenRotate distance ${tDist.toFixed(
+      2
+    )} ${translateDistance.toFixed(2)}`
+  );
   const rotationSegment: RotationPath = {
     kind: "Rot",
     centerX: pivotX,
@@ -399,27 +422,31 @@ function doSingleTurn(
     radius: radiusOfRotation,
     startX: NaN,
     startY: NaN,
-    startHeading: NaN
+    startHeading: NaN,
   };
   if (isRotateThenTranslate) {
     rotationSegment.startX = startX;
     rotationSegment.startY = startY;
-    rotationSegment.startHeading = MathUtils.degToRad(initialOrientation.value)
+    rotationSegment.startHeading = MathUtils.degToRad(initialOrientation.value);
     paths.value.push(rotationSegment, {
       kind: "Trans",
       distance: translateDistance,
       startX: tangentX,
       startY: tangentY,
-      startHeading: MathUtils.degToRad(finalOrientation.value)
+      startHeading: MathUtils.degToRad(finalOrientation.value),
     });
   } else {
     rotationSegment.startX = tangentX;
     rotationSegment.startY = tangentY;
-    rotationSegment.startHeading = MathUtils.degToRad(initialOrientation.value)
+    rotationSegment.startHeading = MathUtils.degToRad(initialOrientation.value);
     paths.value.push(
       {
-        kind: "Trans", distance: translateDistance, startX, startY,
-     startHeading: MathUtils.degToRad(initialOrientation.value) },
+        kind: "Trans",
+        distance: translateDistance,
+        startX,
+        startY,
+        startHeading: MathUtils.degToRad(initialOrientation.value),
+      },
       rotationSegment
     );
   }
@@ -619,7 +646,9 @@ function doDoubleArc(
     const outRadius = outCenter.Vee(initialPoint).Length;
     const r1 = inRadius / (inRadius + outRadius);
     const r2 = outRadius / (inRadius + outRadius);
-    const commonTangent = PGA2D.Mul(r2, inCenter.Normalized).Sub(PGA2D.Mul(r1, outCenter.Normalized)).Normalized;
+    const commonTangent = PGA2D.Mul(r2, inCenter.Normalized).Sub(
+      PGA2D.Mul(r1, outCenter.Normalized)
+    ).Normalized;
     // console.debug(`Computing common tangent with ratio ${r1.toFixed(2)}:${r2.toFixed(2)}`)
     // console.debug(dump2DPoint("DoubleArc outgoing center", outCenter.Normalized))
     // console.debug(dump2DPoint("DoubleArc incoming center", inCenter.Normalized))
@@ -664,7 +693,7 @@ function doDoubleArc(
       radius: outgoingRadius,
       startX: -initialPoint.e02 / initialPoint.e12,
       startY: initialPoint.e01 / initialPoint.e12,
-      startHeading: MathUtils.degToRad(initialOrientation.value)
+      startHeading: MathUtils.degToRad(initialOrientation.value),
     });
     arcToFinal.position.set(
       -inCenter.e02 / inCenter.e12,
@@ -681,7 +710,10 @@ function doDoubleArc(
     //     (isLeftRightArcs ? "CW" : "CCW") +
     //     ` ${incomingArcAngle.toFixed(2)} at ${dump2DPoint("R2", inCenter)}with radius ${distanceHC.toFixed(2)}`
     // );
-    const inComingStartHeading = - (lineSlopeInRadian(perpTangent) + Math.PI/2)
+    const inComingStartHeading = -(
+      lineSlopeInRadian(perpTangent) +
+      Math.PI / 2
+    );
     paths.value.push({
       kind: "Rot", // Incoming arc
       centerX: -inCenter.e02 / inCenter.e12,
@@ -690,7 +722,10 @@ function doDoubleArc(
       radius: distanceHC,
       startX: tangentX,
       startY: tangentY,
-      startHeading: intersectionToFinalDistance > 0 ? inComingStartHeading : Math.PI - inComingStartHeading
+      startHeading:
+        intersectionToFinalDistance > 0
+          ? inComingStartHeading
+          : Math.PI - inComingStartHeading,
     });
   } else {
     debugText.value += " cannot find incoming arc after 200 iterations";
@@ -844,15 +879,15 @@ function doDoubleTurn(
     radius: outgoingRotationRadius,
     startX: NaN,
     startY: NaN,
-    startHeading: NaN
+    startHeading: NaN,
   };
   const startX = -initialPoint.e02 / initialPoint.e12;
   const startY = initialPoint.e01 / initialPoint.e12;
-  const midHeading = (initialOrientation.value + finalOrientation.value)/2
+  const midHeading = (initialOrientation.value + finalOrientation.value) / 2;
   if (isRotateThenTranslate) {
     outArcDetails.startX = startX;
     outArcDetails.startY = startY;
-    outArcDetails.startHeading = MathUtils.degToRad(initialOrientation.value)
+    outArcDetails.startHeading = MathUtils.degToRad(initialOrientation.value);
     paths.value.push(
       outArcDetails,
       {
@@ -860,18 +895,22 @@ function doDoubleTurn(
         distance: translationDistance,
         startX: tangentOnMidPreX,
         startY: tangentOnMidPreY,
-        startHeading: MathUtils.degToRad(midHeading + 180)
+        startHeading: MathUtils.degToRad(within360(midHeading + 180)),
       }
       // `Translate by ${translationDistance.toFixed(2)} units`
     );
   } else {
     outArcDetails.startX = tangentOnStartX;
     outArcDetails.startY = tangentOnStartY;
-    outArcDetails.startHeading = MathUtils.degToRad(initialOrientation.value)
+    outArcDetails.startHeading = MathUtils.degToRad(initialOrientation.value);
     paths.value.push(
       {
-        kind: "Trans", distance: translationDistance, startX, startY,
-     startHeading: MathUtils.degToRad(initialOrientation.value) },
+        kind: "Trans",
+        distance: translationDistance,
+        startX,
+        startY,
+        startHeading: MathUtils.degToRad(initialOrientation.value),
+      },
       // `Translate by ${translationDistance.toFixed(2)} units`,
       outArcDetails
     );
@@ -905,7 +944,7 @@ function doDoubleTurn(
     radius: incomingRotationRadius,
     startX: inTangentStartX,
     startY: inTangentStartY,
-    startHeading: MathUtils.degToRad(midHeading + 180)
+    startHeading: MathUtils.degToRad(within360(midHeading + 180.0)),
   };
   incomingRotationArcAngle = within360(incomingRotationArcAngle);
   paths.value.push(inArcDetails);
@@ -1009,7 +1048,7 @@ function findBikePath() {
     kind: "Final",
     startX: finalMarker.position.x,
     startY: finalMarker.position.y,
-    startHeading: MathUtils.degToRad(finalOrientation.value)
+    startHeading: MathUtils.degToRad(finalOrientation.value),
   });
 }
 
@@ -1021,6 +1060,9 @@ function executePlan() {
 
   //   }
   // })
+}
+function resetExecutor() {
+  runMode.value = "plan";
 }
 </script>
 <style scoped>

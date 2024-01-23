@@ -30,7 +30,7 @@ const { bodyPosition, runMode, bikeInMotion } = storeToRefs(store);
 const currentTab = ref(0);
 
 function setRunMode() {
-  runMode.value = currentTab.value === 0 ? "run" : "plan"    
+  runMode.value = currentTab.value === 0 ? "manual-control" : "plan"    
 }
 </script>
 <style scoped lang="scss">

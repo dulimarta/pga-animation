@@ -243,6 +243,10 @@ watch(
         if (animationFrameHandle !== null) {
           cancelAnimationFrame(animationFrameHandle);
         }
+        if (paths.value.length > 1) {
+          const firstPath = paths.value[0]
+          initializeSteeringGeometry(firstPath.startX, firstPath.startY, firstPath.startHeading)
+        }
         updateGraphicsForPlanner(previousTimeStamp);
         console.debug("Plane Helper position", frontPlaneHelper.position);
         steerDirection.value = 0;
@@ -280,7 +284,7 @@ watch(
       case "autonomous":
         // The path array should have at least two elements, the first
         // path and the end point
-        console.debug("Generated path plan", paths.value);
+        console.debug("Generated path", paths.value);
         if (paths.value.length > 1) {
           activePathIndex = 0;
           const WHEEL_SPEED_RPM = 20;
@@ -293,9 +297,9 @@ watch(
           updateGraphicsForExecutor(performance.now());
           glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
           glcanvas.value?.removeEventListener("wheel", trackWheel);
-          camera.position.set(-2 * WHEEL_RADIUS, 20, 63)
-          camera.lookAt (WHEEL_BASE, 10, WHEEL_RADIUS)
-          bike.add(camera)
+          // camera.position.set(-2 * WHEEL_RADIUS, 20, 63)
+          // camera.lookAt (WHEEL_BASE, 10, WHEEL_RADIUS)
+          scene.add(camera)
         } else {
           activePathIndex = -1;
           activePath = null;
@@ -665,7 +669,7 @@ function updateMotors(driveWheelAngleGain: number) {
 
 function updateGraphicsForExecutor(timeMilliSec: number) {
   const elapsed = TIMER.getDelta();
-
+  console.debug("updateForExecutor")
   if (driveWheelAngularVelocity !== 0) {
     // console.debug(
     //   `Updating motor for angular gain ${driveWheelAngularVelocity * elapsed}`
@@ -732,7 +736,6 @@ function updateGraphicsForExecutor(timeMilliSec: number) {
         activePath = null;
         nextPath = null;
       }
-      // runMode.value = "plan";
     }
   }
   animationFrameHandle = requestAnimationFrame((t) =>
