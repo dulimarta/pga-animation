@@ -249,7 +249,7 @@ function within360(x: number) {
 function parsePath(p: PathSegment): string {
   const commonText =
     `${p.kind} Start (${p.startX.toFixed(2)},${p.startY.toFixed(2)})` +
-    ` Heading:${MathUtils.radToDeg(p.startHeading).toFixed(2)} deg`;
+    ` Heading:${ within360(MathUtils.radToDeg(p.startHeading)).toFixed(2)} deg`;
   let specificText = "";
   if (p.kind === "Trans") {
     const t = p as TranslationPath;
@@ -264,7 +264,7 @@ function parsePath(p: PathSegment): string {
   } else {
     return (
       `Final at (${p.startX.toFixed(2)},${p.startY.toFixed(2)})` +
-      ` Heading:${MathUtils.radToDeg(p.startHeading).toFixed(2)} deg`
+      ` Heading:${within360(MathUtils.radToDeg(p.startHeading)).toFixed(2)} deg`
     );
   }
   return commonText + " " + specificText;
@@ -711,8 +711,7 @@ function doDoubleArc(
     //     ` ${incomingArcAngle.toFixed(2)} at ${dump2DPoint("R2", inCenter)}with radius ${distanceHC.toFixed(2)}`
     // );
     const inComingStartHeading = -(
-      lineSlopeInRadian(perpTangent) +
-      Math.PI / 2
+      lineSlopeInRadian(perpTangent) + Math.PI/2
     );
     paths.value.push({
       kind: "Rot", // Incoming arc
@@ -723,9 +722,9 @@ function doDoubleArc(
       startX: tangentX,
       startY: tangentY,
       startHeading:
-        intersectionToFinalDistance > 0
-          ? inComingStartHeading
-          : Math.PI - inComingStartHeading,
+        isLeftRightArcs 
+          ? inComingStartHeading + Math.PI
+          : inComingStartHeading,
     });
   } else {
     debugText.value += " cannot find incoming arc after 200 iterations";
