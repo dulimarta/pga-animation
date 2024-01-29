@@ -103,7 +103,7 @@ const {
   visualCamera,
   mousePositionOnGround,
   mouseWheelScrollAmount,
-  driveWheelTorque,
+  driveWheelTorqueInput,
 
   runMode, showGeometry, brakeApplied
 } = storeToRefs(visualStore);
@@ -569,10 +569,10 @@ function makeAuxLine(color?: number): [Line, Float32Array] {
 function run_geometric_integrator(timeMillisec: number) {
   lastInterpolatedTorque = currInterpolatedTorque; // f_{k-1+alpha}
   currInterpolatedTorque =
-    ALPHA * lastInputTorque + (1 - ALPHA) * driveWheelTorque.value; // f_{k+alpha}
+    ALPHA * lastInputTorque + (1 - ALPHA) * driveWheelTorqueInput.value; // f_{k+alpha}
   // Unit of torque is Newton.m or kg.m.sec^{-2}.m or kg.m^2.sec^{-2}
   const elapsed = (timeMillisec - previousTimeStamp) / 1000;
-  lastInputTorque = driveWheelTorque.value; // f_{k-1} = f_k
+  lastInputTorque = driveWheelTorqueInput.value; // f_{k-1} = f_k
   const driveWheelMomentumGain =
     elapsed *
     (ALPHA * lastInterpolatedTorque + (1 - ALPHA) * currInterpolatedTorque);

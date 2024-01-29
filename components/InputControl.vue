@@ -50,7 +50,7 @@ const {
   steerDirection,    
   steerMotor, bodyMotor
 } = storeToRefs(store);
-const {brakeApplied,   driveWheelTorque,
+const {brakeApplied,   driveWheelTorqueInput,
 
   showGeometry}= storeToRefs(uiStore)
 const STEER_SPEED = 30;
@@ -66,15 +66,15 @@ watch([steerMotor, bodyMotor], ([s,b]: [GAElement,GAElement]) => {
   infoText.value = parsePGAMotor("Steer Motor", s) + '  ' + parsePGAMotor("Body Motor", b)
 })
 function moreTorque() {
-  driveWheelTorque.value = 2;
+  driveWheelTorqueInput.value = 2;
   setTimeout(() => {
-    driveWheelTorque.value = 0;
+    driveWheelTorqueInput.value = 0;
   }, 500);
 }
 function lessTorque() {
-  driveWheelTorque.value = -0.5;
+  driveWheelTorqueInput.value = -0.5;
   setTimeout(() => {
-    driveWheelTorque.value = 0;
+    driveWheelTorqueInput.value = 0;
   }, 500);
 }
 
