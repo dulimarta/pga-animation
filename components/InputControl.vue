@@ -39,19 +39,20 @@
 
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
+import { useVisualStore } from "~/store/ui";
 import { storeToRefs } from "pinia";
 import { MathUtils } from "three";
 const {parsePGAMotor } = usePGA3D()
 const store = usePGAStore();
+const uiStore = useVisualStore()
 const {
-  driveWheelTorque,
   steerVelocity,
-  steerDirection,  
-  brakeApplied,
-  showGeometry,
+  steerDirection,    
   steerMotor, bodyMotor
 } = storeToRefs(store);
+const {brakeApplied,   driveWheelTorque,
 
+  showGeometry}= storeToRefs(uiStore)
 const STEER_SPEED = 30;
 const infoText = ref("")
 const switchLabel = computed(() =>

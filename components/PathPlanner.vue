@@ -68,10 +68,11 @@ import {
 } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
 import { MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
-import { useVisualStore } from "~/store/visual-store";
+import { useVisualComposable } from "~/composables/visual-factory";
 import Algebra from "ganja.js";
 import { useKeyModifier } from "@vueuse/core";
 import { GAElement } from "~/composables/pga";
+import {useVisualStore} from "~/store/ui"
 const controlKey = useKeyModifier("Control", { events: ["mousemove"] });
 const altKey = useKeyModifier("Alt", { events: ["mousemove"] });
 
@@ -90,15 +91,15 @@ const {
 const MARKER_LENGTH = 50;
 const PATH_THICKNESS = 2.5;
 const store = usePGAStore();
-const visualStore = useVisualStore();
 const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
-const { runMode, bodyPosition, bodyRotation, bodyMotor, paths, rearHub } =
+const { bodyPosition, bodyRotation, bodyMotor, paths, rearHub } =
   storeToRefs(store);
   const {selectActivePath} = usePathExecutor(paths)
 
-const { makeArrow, makeSphere, makePipe, makeArc } = visualStore;
-const { visualScene, mousePositionOnGround, mouseWheelScrollAmount } =
+const { makeArrow, makeSphere, makePipe, makeArc } = useVisualComposable();
+const visualStore = useVisualStore()
+const { visualScene, mousePositionOnGround, mouseWheelScrollAmount, runMode } =
   storeToRefs(visualStore);
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
@@ -1031,3 +1032,4 @@ function executePlan() {
   margin: 1em;
 }
 </style>
+~/composables/visual-store~/store/ui

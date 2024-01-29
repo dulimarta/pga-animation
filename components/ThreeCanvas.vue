@@ -42,12 +42,12 @@ import {
   usePGAStore,
 } from "~/store/pga-store";
 // import CameraControls from "camera-controls";
-import { useVisualStore } from "~/store/visual-store";
+import { useVisualComposable } from "~/composables/visual-factory";
+import { useVisualStore} from "~/store/ui"
 import { storeToRefs } from "pinia";
 import { useWindowSize } from "@vueuse/core";
 import { GAElement } from "~/composables/pga";
 import Algebra from "ganja.js";
-import { Path } from "twojs-ts";
 const {
   makePoint,
   makeDirection,
@@ -59,7 +59,6 @@ const {
   parsePGAPlane,
   parsePGAMotor,
   sandwich,
-  lerp,
 } = usePGA3D();
 const TIMER = new Clock();
 const glcanvas: Ref<HTMLCanvasElement | null> = ref(null);
@@ -83,15 +82,11 @@ const ALPHA = 0.5; // Input averaging factor
 let camera: PerspectiveCamera;
 let animationFrameHandle: number | null = null;
 const {
-  driveWheelTorque,
   steerVelocity,
   steerDirection,
   bodyPosition,
   bikeInMotion,
-  brakeApplied,
   bodyRotation,
-  showGeometry,
-  runMode,
   steerMotor,
   bodyMotor,
   rearHub,
@@ -101,13 +96,16 @@ const {
   paths,
 } = storeToRefs(PGAStore);
 
-const visualStore = useVisualStore();
-const { makePipe, makeSphere, makeTire } = visualStore;
+const { makePipe, makeSphere, makeTire } = useVisualComposable();
+const visualStore = useVisualStore()
 const {
   visualScene,
   visualCamera,
   mousePositionOnGround,
   mouseWheelScrollAmount,
+  driveWheelTorque,
+
+  runMode, showGeometry, brakeApplied
 } = storeToRefs(visualStore);
 
 /*---------------------*
@@ -287,7 +285,7 @@ watch(
           activePath = paths.value[0];
           nextPath = paths.value[1];
           if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
-          configureGeometryForNewPath(activePath);
+          configureGeometryForNewPath(activePath!);
           updateGraphicsForExecutor(performance.now());
           glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
           glcanvas.value?.removeEventListener("wheel", trackWheel);
@@ -898,3 +896,4 @@ function handleResize() {
   // border: 2px solid red;
 }
 </style>
+~/composables/visual-store~/composables/visual-factory~/store/ui

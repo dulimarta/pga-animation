@@ -25,8 +25,11 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { usePGAStore } from "~/store/pga-store";
+import { useVisualStore } from "~/store/ui";
 const store = usePGAStore();
-const { bodyPosition, runMode, bikeInMotion } = storeToRefs(store);
+const uiStore = useVisualStore()
+const { bodyPosition, bikeInMotion } = storeToRefs(store);
+const {runMode} = storeToRefs(uiStore)
 const currentTab = ref(0);
 
 function setRunMode() {
