@@ -26,6 +26,7 @@
     <div v-if="paths.length > 0">
       <v-radio-group label="Path segments" v-model="selectedPath">
         <v-radio
+          class="path-segment"
           v-for="(p, idx) in paths"
           :label="parsePath(p)"
           :value="idx"
@@ -108,7 +109,7 @@ const { visualScene, mousePositionOnGround, mouseWheelScrollAmount } =
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
-const useDoubleArcs = ref(true);
+const useDoubleArcs = ref(false);
 const useSharperTurns = ref(true);
 const selectedPath = ref(0);
 const tValue = ref(0);
@@ -249,7 +250,7 @@ function within360(x: number) {
 function parsePath(p: PathSegment): string {
   const commonText =
     `${p.kind} Start (${p.startX.toFixed(2)},${p.startY.toFixed(2)})` +
-    ` Heading:${ within360(MathUtils.radToDeg(p.startHeading)).toFixed(2)} deg`;
+    ` Heading:${within360(MathUtils.radToDeg(p.startHeading)).toFixed(2)} deg`;
   let specificText = "";
   if (p.kind === "Trans") {
     const t = p as TranslationPath;
@@ -587,7 +588,7 @@ function doDoubleArc(
   // if (distanceEC < outgoingRadius) {
   // }
 
-  debugText.value += `" DOUBLE ARCS with headingDiff ${headingDiff.toFixed(2)}`;
+  debugText.value += ` DOUBLE ARCS with headingDiff ${headingDiff.toFixed(2)}`;
   let isLeftRightArcs = startToIntersectionDistance > 0;
 
   // Point M is the intersection between the perp of target heading and the (perp of) start heading
@@ -711,7 +712,8 @@ function doDoubleArc(
     //     ` ${incomingArcAngle.toFixed(2)} at ${dump2DPoint("R2", inCenter)}with radius ${distanceHC.toFixed(2)}`
     // );
     const inComingStartHeading = -(
-      lineSlopeInRadian(perpTangent) + Math.PI/2
+      lineSlopeInRadian(perpTangent) +
+      Math.PI / 2
     );
     paths.value.push({
       kind: "Rot", // Incoming arc
@@ -721,10 +723,9 @@ function doDoubleArc(
       radius: distanceHC,
       startX: tangentX,
       startY: tangentY,
-      startHeading:
-        isLeftRightArcs 
-          ? inComingStartHeading + Math.PI
-          : inComingStartHeading,
+      startHeading: isLeftRightArcs
+        ? inComingStartHeading + Math.PI
+        : inComingStartHeading,
     });
   } else {
     debugText.value += " cannot find incoming arc after 200 iterations";
@@ -734,6 +735,18 @@ function doDoubleArc(
   return inArcCenterFound;
 }
 
+/**
+ * 
+ * @param initialPoint 
+ * @param finalPoint 
+ * @param initialLine 
+ * @param line2 
+ * @param startToIntersectionDistance 
+ * @param intersectionToFinalDistance 
+ * 
+ * the sign of both distances also determine whether the incoming/outgoing
+ * arcs are CW or CCW
+ */
 function doDoubleTurn(
   initialPoint: GAElement,
   finalPoint: GAElement,
@@ -746,26 +759,13 @@ function doDoubleTurn(
     finalOrientation.value - initialOrientation.value
   );
   const isDiverging = intersectionToFinalDistance * headingDiff < 0;
-  let bisectorOrientation =
-    (initialOrientation.value + finalOrientation.value) / 2;
-  // Confirm that the bisector orientation is pointing in the same
-  // direction as the initial and final orientations by computing
-  // its DOT product.
-  const ci = Math.cos(MathUtils.degToRad(initialOrientation.value));
-  const si = Math.sin(MathUtils.degToRad(initialOrientation.value));
-  const cf = Math.cos(MathUtils.degToRad(finalOrientation.value));
-  const sf = Math.sin(MathUtils.degToRad(finalOrientation.value));
-  const cb = Math.cos(MathUtils.degToRad(bisectorOrientation));
-  const sb = Math.sin(MathUtils.degToRad(bisectorOrientation));
-  if (ci * cb + si * sb < 0 || cf * cb + sf * sb < 0) {
-    debugText.value += ` Flip bisector from ${bisectorOrientation.toFixed(2)}`;
-    bisectorOrientation = (bisectorOrientation + 180) % 360;
-    debugText.value += ` to ${bisectorOrientation.toFixed(2)}`;
-  }
-  // const isOutgoingArcCCW = startToIntersectionDistance > 0;
-  // debugText.value += ` TWO TURNS, heading diff ${headingDiff.toFixed(
-  //   2
-  // )}, bisector orientation ${bisectorOrientation.toFixed(2)}`;
+  const initOr = withinPlusMinus180(initialOrientation.value);
+  const finalOr = withinPlusMinus180(finalOrientation.value);
+  let bisectorOrientation = (initOr + finalOr) / 2;
+  bisectorOrientation = within360(bisectorOrientation + 180);
+  debugText.value += ` initOr ${initOr.toFixed(2)} finalOr ${finalOr.toFixed(
+    2
+  )} Bisector orientation ${bisectorOrientation.toFixed(2)}`;
   const bisectorCtr = initialLine.Normalized.Add(line2.Normalized); // main bisector
   const bisectorLeft = initialLine.Normalized.Add(bisectorCtr.Normalized);
   const bisectorRight = bisectorCtr.Normalized.Add(line2.Normalized);
@@ -830,7 +830,7 @@ function doDoubleTurn(
       ctr1.Normalized
     ).Length;
     transitionPipe.position.set(tangentOnMidPreX, tangentOnMidPreY, 0);
-    transitionPipe.rotation.z = MathUtils.degToRad(bisectorOrientation + 90);
+    transitionPipe.rotation.z = MathUtils.degToRad(bisectorOrientation + 270);
     transitionPipe.translateY(transitionLength / 2);
     transitionPipe.scale.y = transitionLength;
   } else {
@@ -854,14 +854,9 @@ function doDoubleTurn(
     outgoingRotationPivot.e01 / outgoingRotationPivot.e12,
     0
   );
-  arcFromInitial.rotation.z =
-    startToIntersectionDistance < 0
-      ? -MathUtils.degToRad(90 - bisectorOrientation)
-      : MathUtils.degToRad(initialOrientation.value - 90);
+  const deltaOut = bisectorOrientation - initialOrientation.value;
   outgoingRotationArcAngle = within360(
-    startToIntersectionDistance < 0
-      ? 180 - bisectorOrientation + initialOrientation.value
-      : 180 + bisectorOrientation - initialOrientation.value
+    startToIntersectionDistance < 0 ? 360 - deltaOut : deltaOut
   );
   // const outArcDetails =
   //   "Rotate " +
@@ -882,7 +877,6 @@ function doDoubleTurn(
   };
   const startX = -initialPoint.e02 / initialPoint.e12;
   const startY = initialPoint.e01 / initialPoint.e12;
-  const midHeading = (initialOrientation.value + finalOrientation.value) / 2;
   if (isRotateThenTranslate) {
     outArcDetails.startX = startX;
     outArcDetails.startY = startY;
@@ -894,7 +888,7 @@ function doDoubleTurn(
         distance: translationDistance,
         startX: tangentOnMidPreX,
         startY: tangentOnMidPreY,
-        startHeading: MathUtils.degToRad(within360(midHeading + 180)),
+        startHeading: MathUtils.degToRad(bisectorOrientation),
       }
       // `Translate by ${translationDistance.toFixed(2)} units`
     );
@@ -915,25 +909,26 @@ function doDoubleTurn(
     );
   }
   modifyArc(arcFromInitial, outgoingRotationRadius, outgoingRotationArcAngle);
+  arcFromInitial.position.z = 0;
   rotationPivotSphere.position.set(
     -outgoingRotationPivot.e02 / outgoingRotationPivot.e12,
     outgoingRotationPivot.e01 / outgoingRotationPivot.e12,
     0
   );
+  arcFromInitial.rotation.z =
+    startToIntersectionDistance < 0
+      ? MathUtils.degToRad(bisectorOrientation - 270)
+      : MathUtils.degToRad(initialOrientation.value - 90);
+
+  // Calculate incoming arc
   const incomingRotationRadius = rightPivot.Normalized.Vee(
     finalPoint.Normalized
   ).Length;
-  let incomingRotationArcAngle =
-    intersectionToFinalDistance > 0
-      ? finalOrientation.value - bisectorOrientation + 180
-      : bisectorOrientation - finalOrientation.value + 180;
+  const deltaIn = finalOrientation.value - bisectorOrientation;
+  let incomingRotationArcAngle = within360(
+    intersectionToFinalDistance > 0 ? deltaIn : 360 - deltaIn
+  );
 
-  // const inArcDetails =
-  //   "Rotate " +
-  //   (isOutgoingArcCCW ? "CW" : "CCW") +
-  //   ` ${incomingRotationArcAngle.toFixed(
-  //     2
-  //   )} degrees at ${dump2DPoint("R2", rightPivot)} with radius ${incomingRotationRadius.toFixed(2)}`;
   const inArcDetails: RotationPath = {
     kind: "Rot",
     centerX: -rightPivot.e02 / rightPivot.e12,
@@ -943,15 +938,15 @@ function doDoubleTurn(
     radius: incomingRotationRadius,
     startX: inTangentStartX,
     startY: inTangentStartY,
-    startHeading: MathUtils.degToRad(within360(midHeading + 180.0)),
+    startHeading: MathUtils.degToRad(within360(bisectorOrientation)),
   };
-  incomingRotationArcAngle = within360(incomingRotationArcAngle);
   paths.value.push(inArcDetails);
   modifyArc(arcToFinal, incomingRotationRadius, incomingRotationArcAngle);
   arcToFinal.rotation.z =
     intersectionToFinalDistance > 0
-      ? MathUtils.degToRad(90 + bisectorOrientation)
+      ? MathUtils.degToRad(270 + bisectorOrientation)
       : MathUtils.degToRad(90 + finalOrientation.value);
+  arcToFinal.position.z = 0;
 }
 
 function findBikePath() {
@@ -1072,5 +1067,11 @@ function resetExecutor() {
 
 #floor-map {
   margin: 1em;
+}
+.path-segment {
+  border-top: 1px solid black;
+}
+.path-segment:last-child {
+  border-bottom: 1px solid black;
 }
 </style>

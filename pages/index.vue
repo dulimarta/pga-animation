@@ -1,6 +1,6 @@
 <template>
   <div id="main">
-    <ThreeCanvas class="flex-child"/>
+    <ThreeCanvas id="canvas"/>
     <div class="flex-child">
       <v-tabs v-model="currentTab" @update:modelValue="setRunMode">
         <v-tab>Run</v-tab>
@@ -38,14 +38,8 @@ function setRunMode() {
   display: flex;
   flex-direction: row;
 }
+
 .flex-child {
-  &:nth-child(1) {
-    flex-grow: 4;
-    // border: 2px solid blue;
-  }
-  &:nth-child(2) {
-    flex-grow: 1;
-    // border: 2px solid red
-  }
+  min-width: 24em;
 }
 </style>

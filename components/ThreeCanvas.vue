@@ -239,6 +239,27 @@ watch(
     bike.remove(camera)
     scene.remove(camera)
     switch (currentMode) {
+      case "manual-control":
+        if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
+        updateGraphics(performance.now());
+        frontWheelPlaneMesh.position.z = WHEEL_RADIUS / 2;
+        rearWheelPlaneMesh.position.z = WHEEL_RADIUS / 2;
+        frontPlaneHelper.size = 1;
+        rearPlaneHelper.size = 1;
+        // break
+        // if (showGeometry.value) addVisualAccessories();
+        // initializeSteeringGeometry(
+        //   bodyPosition.value.x,
+        //   bodyPosition.value.y,
+        //   bodyRotation.value
+        // );
+        camera.position.set(-1.8 * WHEEL_RADIUS, -100, 63);
+        camera.lookAt(WHEEL_BASE / 2, 0, 5);
+        // scene.remove(camera);
+        bike.add(camera);
+        glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
+        glcanvas.value?.removeEventListener("wheel", trackWheel);
+        break;
       case "plan":
         if (animationFrameHandle !== null) {
           cancelAnimationFrame(animationFrameHandle);
@@ -306,27 +327,7 @@ watch(
           nextPath = null;
         }
         break;
-      case "manual-control":
-        if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
-        updateGraphics(performance.now());
-        frontWheelPlaneMesh.position.z = WHEEL_RADIUS / 2;
-        rearWheelPlaneMesh.position.z = WHEEL_RADIUS / 2;
-        frontPlaneHelper.size = 1;
-        rearPlaneHelper.size = 1;
-        // break
-        // if (showGeometry.value) addVisualAccessories();
-        // initializeSteeringGeometry(
-        //   bodyPosition.value.x,
-        //   bodyPosition.value.y,
-        //   bodyRotation.value
-        // );
-        camera.position.set(-1.8 * WHEEL_RADIUS, -100, 63);
-        camera.lookAt(WHEEL_BASE / 2, 0, 5);
-        // scene.remove(camera);
-        bike.add(camera);
-        glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
-        glcanvas.value?.removeEventListener("wheel", trackWheel);
-        break;
+
     }
   }
 );
