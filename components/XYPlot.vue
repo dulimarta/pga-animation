@@ -7,10 +7,10 @@
 
 import { storeToRefs } from "pinia";
 import { degToRad } from "three/src/math/MathUtils";
-import { usePGAStore } from "~/store/pga-store";
+import { useVisualStore } from "~/store/ui";
 const canvas2d: Ref<HTMLCanvasElement | null> = ref(null);
-const PGAStore = usePGAStore();
-const {runMode} = storeToRefs(PGAStore)
+const uiStore = useVisualStore();
+const {runMode} = storeToRefs(uiStore)
 type ComponentProps = {
   xValue: number;
   yValue: number;

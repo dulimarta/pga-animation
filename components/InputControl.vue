@@ -39,19 +39,21 @@
 
 <script setup lang="ts">
 import { usePGAStore } from "~/store/pga-store";
+import { useVisualStore } from "~/store/ui";
 import { storeToRefs } from "pinia";
 import { MathUtils } from "three";
+import { useKinematicsStore } from "~/store/kinematics";
 const {parsePGAMotor } = usePGA3D()
 const store = usePGAStore();
+const uiStore = useVisualStore()
+const kinematicStore = useKinematicsStore()
 const {
-  driveWheelTorque,
-  steerVelocity,
-  steerDirection,  
-  brakeApplied,
-  showGeometry,
+  steerDirection,    
   steerMotor, bodyMotor
 } = storeToRefs(store);
-
+const {brakeApplied,   driveWheelTorqueInput, steerVelocityInput,
+  showGeometry}= storeToRefs(uiStore)
+  // const {steerVelocity} = storeToRefs(kinematicStore)
 const STEER_SPEED = 30;
 const infoText = ref("")
 const switchLabel = computed(() =>
@@ -65,28 +67,28 @@ watch([steerMotor, bodyMotor], ([s,b]: [GAElement,GAElement]) => {
   infoText.value = parsePGAMotor("Steer Motor", s) + '  ' + parsePGAMotor("Body Motor", b)
 })
 function moreTorque() {
-  driveWheelTorque.value = 2;
+  driveWheelTorqueInput.value = 2;
   setTimeout(() => {
-    driveWheelTorque.value = 0;
+    driveWheelTorqueInput.value = 0;
   }, 500);
 }
 function lessTorque() {
-  driveWheelTorque.value = -0.5;
+  driveWheelTorqueInput.value = -0.5;
   setTimeout(() => {
-    driveWheelTorque.value = 0;
+    driveWheelTorqueInput.value = 0;
   }, 500);
 }
 
 function steerLeft() {
-  steerVelocity.value = MathUtils.degToRad(STEER_SPEED); // clockwise
+  steerVelocityInput.value = MathUtils.degToRad(STEER_SPEED); // clockwise
   setTimeout(() => {
-    steerVelocity.value = 0;
+    steerVelocityInput.value = 0;
   }, 300);
 }
 function steerRight() {
-  steerVelocity.value = -MathUtils.degToRad(STEER_SPEED); // anticlockwise
+  steerVelocityInput.value = -MathUtils.degToRad(STEER_SPEED); // anticlockwise
   setTimeout(() => {
-    steerVelocity.value = 0;
+    steerVelocityInput.value = 0;
   }, 300);
 }
 </script>

@@ -12,7 +12,7 @@ import {
   Camera,
 } from "three";
 
-export const useVisualStore = defineStore("visual", () => {
+export function useVisualComposable() {
   function makePipe(
     pipeLength: number,
     pipeRadius: number,
@@ -74,35 +74,37 @@ export const useVisualStore = defineStore("visual", () => {
     const g = new Group();
     // g.add(new AxesHelper(length * 1.5))
     const arrowBody = makePipe(length, thickness, color);
-    arrowBody.rotateZ(-Math.PI/2)
+    arrowBody.rotateZ(-Math.PI / 2);
     arrowBody.translateY(length / 2);
     g.add(arrowBody);
     const arrowHead = makeCone(2 * thickness, 0.1 * length, color);
-    arrowHead.rotateZ(-Math.PI/2)
+    arrowHead.rotateZ(-Math.PI / 2);
     arrowHead.translateY(length);
     g.add(arrowHead);
     return g;
   }
-  function makeArc(radius: number, thickness: number, sweepAngleDegree: number, color?: string) {
+  function makeArc(
+    radius: number,
+    thickness: number,
+    sweepAngleDegree: number,
+    color?: string
+  ) {
     return new Mesh(
-      new TorusGeometry(radius, thickness, Math.ceil(sweepAngleDegree / 10), 6, sweepAngleDegree * Math.PI / 180),
-      new MeshPhongMaterial({color: color ?? "white"})
-    )
+      new TorusGeometry(
+        radius,
+        thickness,
+        Math.ceil(sweepAngleDegree / 10),
+        6,
+        (sweepAngleDegree * Math.PI) / 180
+      ),
+      new MeshPhongMaterial({ color: color ?? "white" })
+    );
   }
-  // const initialMarker: Ref<Group> = ref(makeArrow())
-  const visualScene: Ref<Scene | null> = ref(null);
-  const visualCamera: Ref<Camera | null> = ref(null);
-  const mousePositionOnGround = ref(new Vector3());
-  const mouseWheelScrollAmount = ref(0);
   return {
     makePipe,
     makeSphere,
     makeTire,
     makeArc,
     makeArrow,
-    visualScene,
-    visualCamera,
-    mousePositionOnGround,
-    mouseWheelScrollAmount,
   };
-});
+}

@@ -72,10 +72,11 @@ import {
 } from "~/store/pga-store";
 import { storeToRefs } from "pinia";
 import { MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
-import { useVisualStore } from "~/store/visual-store";
+import { useVisualComposable } from "~/composables/visual-factory";
 import Algebra from "ganja.js";
 import { useKeyModifier } from "@vueuse/core";
 import { GAElement } from "~/composables/pga";
+import {useVisualStore} from "~/store/ui"
 const controlKey = useKeyModifier("Control", { events: ["mousemove"] });
 const altKey = useKeyModifier("Alt", { events: ["mousemove"] });
 
@@ -96,15 +97,15 @@ const {
 const MARKER_LENGTH = 50;
 const PATH_THICKNESS = 2.5;
 const store = usePGAStore();
-const visualStore = useVisualStore();
 const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
-const { runMode, bodyPosition, bodyRotation, bodyMotor, paths, rearHub } =
+const { bodyPosition, bodyRotation, bodyMotor, paths, rearHub } =
   storeToRefs(store);
 const { selectActivePath } = usePathExecutor(paths);
 
-const { makeArrow, makeSphere, makePipe, makeArc } = visualStore;
-const { visualScene, mousePositionOnGround, mouseWheelScrollAmount } =
+const { makeArrow, makeSphere, makePipe, makeArc } = useVisualComposable();
+const visualStore = useVisualStore()
+const { visualScene, mousePositionOnGround, mouseWheelScrollAmount, runMode } =
   storeToRefs(visualStore);
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
@@ -149,33 +150,33 @@ onMounted(() => {
   transitionSphere2.position.z = -100;
 });
 
-watch(
-  () => runMode.value,
-  (mode: "plan" | "manual-control" | "autonomous") => {
-    if (mode === "manual-control") {
-      // visualScene.value?.remove(initialMarker);
-      // visualScene.value?.remove(finalMarker);
-      // visualScene.value?.remove(transitionSphere);
-      // visualScene.value?.remove(rotationPivotSphere);
-      // visualScene.value?.remove(rotationPivot2Sphere);
-      // visualScene.value?.remove(intersectionSphere);
-      // visualScene.value?.remove(arcFromInitial);
-      // visualScene.value?.remove(arcToFinal);
-    } else {
-      // visualScene.value?.add(arcFromInitial);
-      // visualScene.value?.add(arcToFinal);
-      // visualScene.value?.add(finalMarker);
-      // visualScene.value?.add(initialMarker);
-      // visualScene.value?.add(intersectionSphere);
-      // visualScene.value?.add(rotationPivot2Sphere);
-      // visualScene.value?.add(rotationPivot2Sphere);
-      // visualScene.value?.add(rotationPivotSphere);
-      // visualScene.value?.add(transitionSphere);
-      // visualScene.value?.add(transitionSphere2);
-      // initialMarker.rotation.z = -bodyRotation.value;
-    }
-  }
-);
+// watch(
+//   () => runMode.value,
+//   (mode: "plan" | "manual-control" | "autonomous") => {
+//     if (mode === "manual-control") {
+//       // visualScene.value?.remove(initialMarker);
+//       // visualScene.value?.remove(finalMarker);
+//       // visualScene.value?.remove(transitionSphere);
+//       // visualScene.value?.remove(rotationPivotSphere);
+//       // visualScene.value?.remove(rotationPivot2Sphere);
+//       // visualScene.value?.remove(intersectionSphere);
+//       // visualScene.value?.remove(arcFromInitial);
+//       // visualScene.value?.remove(arcToFinal);
+//     } else {
+//       // visualScene.value?.add(arcFromInitial);
+//       // visualScene.value?.add(arcToFinal);
+//       // visualScene.value?.add(finalMarker);
+//       // visualScene.value?.add(initialMarker);
+//       // visualScene.value?.add(intersectionSphere);
+//       // visualScene.value?.add(rotationPivot2Sphere);
+//       // visualScene.value?.add(rotationPivot2Sphere);
+//       // visualScene.value?.add(rotationPivotSphere);
+//       // visualScene.value?.add(transitionSphere);
+//       // visualScene.value?.add(transitionSphere2);
+//       // initialMarker.rotation.z = -bodyRotation.value;
+//     }
+//   }
+// );
 
 watch(
   [() => useDoubleArcs.value, () => useSharperTurns.value],
@@ -1068,10 +1069,12 @@ function resetExecutor() {
 #floor-map {
   margin: 1em;
 }
-.path-segment {
-  border-top: 1px solid black;
+
+.pathSegment {
+  border-top: 2px solid grey;
+  padding: .5em 0;
 }
-.path-segment:last-child {
-  border-bottom: 1px solid black;
+.pathSegment:last-child {
+  border-bottom: 2px solid grey;
 }
 </style>
