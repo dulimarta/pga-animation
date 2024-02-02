@@ -25,7 +25,6 @@ export type TranslationPath = SegmentType & {
 // };
 export type PathSegment = SegmentType | RotationPath | TranslationPath; //| Terminal;
 export const usePGAStore = defineStore("pga", () => {
-  const steerVelocity = ref(0);
   const steerDirection = ref(0); /* in radians */
   // const rigidRotationAngleDebug = ref(0)
   const bodyRotation = ref(0); // in radians
@@ -40,7 +39,6 @@ export const usePGAStore = defineStore("pga", () => {
   const paths: Ref<Array<PathSegment>> = ref([]);
 
   return {
-    steerVelocity,
     steerDirection,
     bodyPosition,
     bodyRotation,

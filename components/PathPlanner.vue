@@ -25,7 +25,7 @@
 
     <div v-if="paths.length > 0">
       <v-radio-group label="Path segments" v-model="selectedPath">
-        <v-radio
+        <v-radio  class="pathSegment"
           v-for="(p, idx) in paths"
           :label="parsePath(p)"
           :value="idx"
@@ -1030,6 +1030,14 @@ function executePlan() {
 
 #floor-map {
   margin: 1em;
+}
+
+.pathSegment {
+  border-top: 2px solid grey;
+  padding: .5em 0;
+}
+.pathSegment:last-child {
+  border-bottom: 2px solid grey;
 }
 </style>
 ~/composables/visual-store~/store/ui
