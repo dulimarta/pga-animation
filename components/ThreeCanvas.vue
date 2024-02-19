@@ -29,26 +29,27 @@ import {
   MeshBasicMaterial,
   DoubleSide,
   Raycaster,
-  Line3,
   Clock,
   PointLightHelper,
   AxesHelper,
 } from "three";
 import * as THREE from "three";
-import {
+import type {
   PathSegment,
   RotationPath,
   TranslationPath,
-  usePGAStore,
-} from "~/store/pga-store";
+} from "@/store/planner";
+import { usePGAStore } from "~/store/pga-store";
 // import CameraControls from "camera-controls";
 import { useVisualComposable } from "~/composables/visual-factory";
-import { useVisualStore} from "~/store/ui"
-import {useKinematicsStore} from "@/store/kinematics"
+import { useVisualStore } from "~/store/ui";
+import { useKinematicsStore } from "@/store/kinematics";
 import { storeToRefs } from "pinia";
 import { useWindowSize } from "@vueuse/core";
-import { GAElement } from "~/composables/pga";
+import type { GAElement } from "~/composables/pga";
 import Algebra from "ganja.js";
+import { useAnimation } from "~/composables/camera-animation";
+import { usePlannerStore } from "~/store/planner";
 const {
   makePoint,
   makeDirection,
@@ -80,7 +81,8 @@ const TOTAL_INERTIA =
 const WHEEL_RADIUS = TIRE_RADIUS + TIRE_TUBE_RADIUS;
 const ALPHA = 0.5; // Input averaging factor
 // CameraControls.install({ THREE });
-let camera: PerspectiveCamera;
+const camera = new PerspectiveCamera(50, 4 / 3, 0.1, 1000);
+const scene = new Scene();
 let animationFrameHandle: number | null = null;
 const {
   steerDirection,
@@ -92,22 +94,25 @@ const {
   rearHub,
   frontHub,
   rearWheelPlane,
-  frontWheelPlane,
-  paths,
+  frontWheelPlane
 } = storeToRefs(PGAStore);
-const kinematicStore = useKinematicsStore()
+const kinematicStore = useKinematicsStore();
 // const {steerVelocity} = storeToRefs(kinematicStore)
 const { makePipe, makeSphere, makeTire } = useVisualComposable();
-const visualStore = useVisualStore()
+const visualStore = useVisualStore();
 const {
   visualScene,
   visualCamera,
   mousePositionOnGround,
   mouseWheelScrollAmount,
   steerVelocityInput,
-  runMode, showGeometry, brakeApplied
+  runMode,
+  showGeometry,
+  brakeApplied,
 } = storeToRefs(visualStore);
-
+const plannerStore = usePlannerStore()
+const {paths, selectedPath} = storeToRefs(plannerStore)
+const { animateCamera } = useAnimation(scene, camera);
 /*---------------------*
  * Kinematic variables *
  *---------------------*/
@@ -122,7 +127,9 @@ let renderer: WebGLRenderer;
  *---------------*/
 const upDirection = makeDirection(0, 0, 1);
 const groundPlane = makePlane(0, 0, 1, 0);
-let bikeRigidRotationAxis = frontWheelPlane.value.Wedge(rearWheelPlane.value).Normalized;
+let bikeRigidRotationAxis = frontWheelPlane.value.Wedge(
+  rearWheelPlane.value
+).Normalized;
 const rotAxisObj = makePipe(WHEEL_RADIUS + TIRE_TUBE_RADIUS, 0.5, "green");
 
 /*--------------------*
@@ -145,13 +152,6 @@ let ground: Mesh;
 const textureLoader = new TextureLoader();
 const rayCaster = new Raycaster();
 const mousePointerPosition = new Vector2();
-const scene = new Scene();
-const cameraLine = new Line3();
-const cameraStart = new Vector3();
-const cameraEnd = new Vector3();
-const lookAtLine = new Line3();
-const lookAtStart = new Vector3();
-const lookAtEnd = new Vector3();
 const frontSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "yellow");
 const rearSphere = makeSphere(TIRE_TUBE_RADIUS * 2, "red");
 const frontWheelPlaneMesh = new Mesh(
@@ -207,13 +207,15 @@ scene.add(rotAxisObj);
 
 watch(
   () => runMode.value,
-  (
+  async (
     currentMode: "plan" | "manual-control" | "autonomous",
     prevMode: "plan" | "manual-control" | "autonomous"
   ) => {
     console.debug(`Switch run mode from "${prevMode}" to "${currentMode}"`);
-    bike.remove(camera)
-    scene.remove(camera)
+    bike.remove(camera);
+    scene.remove(camera);
+    glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
+    glcanvas.value?.removeEventListener("wheel", trackWheel);
     switch (currentMode) {
       case "manual-control":
         if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
@@ -233,16 +235,18 @@ watch(
         camera.lookAt(WHEEL_BASE / 2, 0, 5);
         // scene.remove(camera);
         bike.add(camera);
-        glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
-        glcanvas.value?.removeEventListener("wheel", trackWheel);
         break;
       case "plan":
         if (animationFrameHandle !== null) {
           cancelAnimationFrame(animationFrameHandle);
         }
         if (paths.value.length > 1) {
-          const firstPath = paths.value[0]
-          initializeSteeringGeometry(firstPath.startX, firstPath.startY, firstPath.startHeading)
+          const firstPath = paths.value[0];
+          initializeSteeringGeometry(
+            firstPath.startX,
+            firstPath.startY,
+            firstPath.startHeading
+          );
         }
         updateGraphicsForPlanner(previousTimeStamp);
         console.debug("Plane Helper position", frontPlaneHelper.position);
@@ -256,25 +260,15 @@ watch(
         // if (showGeometry.value) removeVisualAccessories();
         // camera.position.set(0, -500, 700);
         // camera.lookAt(0, -200, 0);
-        cameraStart.set(-1.8 * WHEEL_RADIUS, -100, 63);
-        cameraEnd.set(0, -500, 700);
-        cameraLine.set(cameraStart, cameraEnd);
-        lookAtStart.set(WHEEL_BASE / 2, 0, 5);
-        lookAtEnd.set(0, -200, 0);
-        lookAtLine.set(lookAtStart, lookAtEnd);
-        // bike.remove(camera);
+        if (prevMode === "manual-control") {
+          await animateCamera(
+            new Vector3(-1.8 * WHEEL_RADIUS, -100, 63),
+            new Vector3(0, -500, 700),
+            new Vector3(WHEEL_BASE / 2, 0, 5),
+            new Vector3(0, -200, 0)
+          );
+        }
         scene.add(camera);
-        let t = 0;
-        const cameraTimer = setInterval(() => {
-          if (t > 1) clearInterval(cameraTimer);
-          else {
-            cameraLine.at(t, cameraStart);
-            lookAtLine.at(t, lookAtStart);
-            camera.position.copy(cameraStart);
-            camera.lookAt(lookAtStart);
-            t += 0.02;
-          }
-        }, 30);
         glcanvas.value?.addEventListener("mousemove", trackMouseIn3D);
         glcanvas.value?.addEventListener("wheel", trackWheel);
         break;
@@ -282,29 +276,11 @@ watch(
         // The path array should have at least two elements, the first
         // path and the end point
         console.debug("Generated path", paths.value);
-        if (paths.value.length > 1) {
-          activePathIndex = 0;
-          const WHEEL_SPEED_RPM = 20;
-          // Convert RPM to rads/second
-          driveWheelAngularVelocity = (WHEEL_SPEED_RPM * Math.PI) / 30;
-          activePath = paths.value[0];
-          nextPath = paths.value[1];
-          if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
-          configureGeometryForNewPath(activePath!);
-          previousTimeStamp = performance.now()
-          updateGraphicsForExecutor(performance.now());
-          glcanvas.value?.removeEventListener("mousemove", trackMouseIn3D);
-          glcanvas.value?.removeEventListener("wheel", trackWheel);
-          // camera.position.set(-2 * WHEEL_RADIUS, 20, 63)
-          // camera.lookAt (WHEEL_BASE, 10, WHEEL_RADIUS)
-          scene.add(camera)
-        } else {
-          activePathIndex = -1;
-          activePath = null;
-          nextPath = null;
-        }
-        break;
+        initializeAutonomousMode();
+        previousTimeStamp = performance.now();
+        updateGraphicsForExecutor(performance.now());
 
+        break;
     }
   }
 );
@@ -323,6 +299,7 @@ watch(
 watch(
   [() => bodyPosition.value, () => bodyRotation.value],
   ([position, orientation]: [Vector2, number]) => {
+    console.debug("Body pos and orientation changed");
     if (runMode.value === "plan") {
       console.debug("this should not happen in execute mode");
       bodyMotor.value = makeScalar(1);
@@ -379,7 +356,6 @@ onMounted(async () => {
   const eastBorder = makePipe(GROUND_SIZE, 5, "yellow");
   eastBorder.position.x = GROUND_SIZE / 2;
   scene.add(eastBorder);
-  camera = new PerspectiveCamera(50, 4 / 3, 0.1, 1000);
   // rayCaster.setFromCamera(mousePointerPosition, camera);
   visualCamera.value = camera;
   camera.position.set(-1.8 * WHEEL_RADIUS, -100, 50);
@@ -420,27 +396,37 @@ onBeforeUnmount(() => {
 });
 
 function configureGeometryForNewPath(p: PathSegment) {
-  initializeSteeringGeometry(p.startX, p.startY, -p.startHeading)
+  initializeSteeringGeometry(p.startX, p.startY, -p.startHeading);
   bodyMotor.value = makeScalar(1);
   console.debug(parsePGAMotor("Body motor for path-0", bodyMotor.value));
   if (p.kind === "Trans") {
     const t = activePath as TranslationPath;
     // The kinematics equations assume SI unit
     travelDistanceRequired = t.distance * INCH_TO_METER;
-    console.debug("Configuring translational path", t, ` travel distance ${travelDistanceRequired.toFixed(2)} meters`)
-    steerDirection.value = 0
-    steerMotor.value = makeScalar(1)
-  } else if (p.kind === 'Rot') {
-    const r = activePath as RotationPath
-    travelDistanceRequired = Math.abs(MathUtils.degToRad(r.arcAngleDegree) * r.radius) * INCH_TO_METER;
+    console.debug(
+      "Configuring translational path",
+      t,
+      ` travel distance ${travelDistanceRequired.toFixed(2)} meters`
+    );
+    steerDirection.value = 0;
+    steerMotor.value = makeScalar(1);
+  } else if (p.kind === "Rot") {
+    const r = activePath as RotationPath;
+    travelDistanceRequired =
+      Math.abs(MathUtils.degToRad(r.arcAngleDegree) * r.radius) * INCH_TO_METER;
     // Both args to atan2 below are in inches, no need to convert to SI unit
-    console.debug("Configuring rotational path", r.arcAngleDegree < 0 ? "CW" : "CCW", r, 
-    ` travel distance ${travelDistanceRequired.toFixed(2)} meters`)
-    steerDirection.value = Math.atan2(WHEEL_BASE, r.radius) * Math.sign(r.arcAngleDegree)
-    steerMotor.value = makeRotor(steeringAxis, steerDirection.value)
+    console.debug(
+      "Configuring rotational path",
+      r.arcAngleDegree < 0 ? "CW" : "CCW",
+      r,
+      ` travel distance ${travelDistanceRequired.toFixed(2)} meters`
+    );
+    steerDirection.value =
+      Math.atan2(WHEEL_BASE, r.radius) * Math.sign(r.arcAngleDegree);
+    steerMotor.value = makeRotor(steeringAxis, steerDirection.value);
   }
-  mysteeringFork.rotation.z = steerDirection.value
-  travelDistanceSoFar = 0
+  mysteeringFork.rotation.z = steerDirection.value;
+  travelDistanceSoFar = 0;
   bikeRigidRotationAxis = sandwich(
     steerMotor.value,
     frontWheelPlane.value
@@ -479,7 +465,23 @@ function initializeSteeringGeometry(
   );
   frontPlane.constant = frontWheelPlane.value.e0;
   steeringAxis = frontHub.value.Vee(upDirection).Normalized;
-  bikeRigidRotationAxis = frontWheelPlane.value.Wedge(rearWheelPlane.value).Normalized;
+  bikeRigidRotationAxis = frontWheelPlane.value.Wedge(
+    rearWheelPlane.value
+  ).Normalized;
+}
+
+function initializeAutonomousMode() {
+  if (paths.value.length > 1) {
+    activePathIndex = 0;
+    const WHEEL_SPEED_RPM = 20;
+    // Convert RPM to rads/second
+    driveWheelAngularVelocity = (WHEEL_SPEED_RPM * Math.PI) / 30;
+    activePath = paths.value[0];
+    nextPath = paths.value[1];
+    if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
+    configureGeometryForNewPath(activePath!);
+    scene.add(camera);
+  }
 }
 
 function removeVisualAccessories() {
@@ -524,6 +526,7 @@ function trackMouseIn3D(ev: MouseEvent) {
   }
   ev.preventDefault();
 }
+
 let wheelTimer: any = null;
 function trackWheel(ev: WheelEvent) {
   if (!ev.ctrlKey && !ev.altKey) return;
@@ -562,7 +565,7 @@ function makeAuxLine(color?: number): [Line, Float32Array] {
 function run_geometric_integrator(timeMillisec: number) {
   // Unit of torque is Newton.m or kg.m.sec^{-2}.m or kg.m^2.sec^{-2}
   const elapsed = (timeMillisec - previousTimeStamp) / 1000;
-  const driveWheelMomentumGain = elapsed * visualStore.computedTorque()
+  const driveWheelMomentumGain = elapsed * visualStore.computedTorque();
   // Unit of angular momentum is kg.m^2.sec^{-1}
   // Unit of inertia is kg.m^2
   const driveWheelAngularVelocityGain = driveWheelMomentumGain / TOTAL_INERTIA;
@@ -621,7 +624,9 @@ function updateGraphicsForPlanner(timeStamp: number) {
 
 function updateMotors(driveWheelAngleGain: number) {
   const linearDistanceGain = driveWheelAngleGain * WHEEL_RADIUS * INCH_TO_METER;
-  console.debug(`UpdateMotors: linear distance gain ${linearDistanceGain.toFixed(3)}`)
+  // console.debug(
+  //   `UpdateMotors: linear distance gain ${linearDistanceGain.toFixed(3)}`
+  // );
   let motionAmount = 0;
   if (Math.abs(steerDirection.value) < 1e-5) {
     // Translational motion
@@ -642,54 +647,63 @@ function updateMotors(driveWheelAngleGain: number) {
   bodyMotor.value = bodyMotor.value.Mul(deltaBodyMotor);
 }
 
-function checkExecutorProgress(elapsed:number) {
-  console.debug("Elapsed", elapsed)
-  
-  let distanceGained =
-      driveWheelAngularVelocity * WHEEL_RADIUS * elapsed * INCH_TO_METER;
-    const directDistanceFromStart =
-      Math.sqrt(
-        Math.pow(bike.position.x - activePath!.startX, 2) +
-          Math.pow(bike.position.y - activePath!.startY, 2)
-      ) * INCH_TO_METER;
-    travelDistanceSoFar += distanceGained;
-    console.debug(`Executor linear distance gain ${distanceGained.toFixed(3)} meters`,
-    ` Travel progress ${travelDistanceSoFar.toFixed(2)}/${travelDistanceRequired.toFixed(2)}`)
-    if (
-      travelDistanceSoFar >= travelDistanceRequired /*||
-      directDistanceFromStart >= travelDistanceRequired*/
-    ) {
-      console.debug("Completed current path", activePath);
-      if (nextPath?.kind !== 'Final') {
-        if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
-        activePath = nextPath;
-        activePathIndex++;
-        nextPath = paths.value[activePathIndex + 1];
-        configureGeometryForNewPath(activePath!)
-      } else {
-        driveWheelAngularVelocity = 0;
-        activePathIndex = -1;
-        activePath = null;
-        nextPath = null;
-      }
-      // runMode.value = "plan"
-    }
+function checkExecutorProgress(elapsed: number): boolean {
+  // console.debug("Elapsed", elapsed);
 
+  let distanceGained =
+    driveWheelAngularVelocity * WHEEL_RADIUS * elapsed * INCH_TO_METER;
+  const directDistanceFromStart =
+    Math.sqrt(
+      Math.pow(bike.position.x - activePath!.startX, 2) +
+        Math.pow(bike.position.y - activePath!.startY, 2)
+    ) * INCH_TO_METER;
+  travelDistanceSoFar += distanceGained;
+  // console.debug(
+  //   `Executor linear distance gain ${distanceGained.toFixed(3)} meters`,
+  //   ` Travel progress ${travelDistanceSoFar.toFixed(
+  //     2
+  //   )}/${travelDistanceRequired.toFixed(2)}`
+  // );
+  if (
+    travelDistanceSoFar >= travelDistanceRequired ||
+    directDistanceFromStart >= travelDistanceRequired
+  ) {
+    console.debug("Completed current path", activePath);
+    if (nextPath?.kind !== "Final") {
+      // if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
+      activePath = nextPath;
+      activePathIndex++;
+      selectedPath.value = activePathIndex
+      nextPath = paths.value[activePathIndex + 1];
+      configureGeometryForNewPath(activePath!);
+      return false;
+    } else {
+      driveWheelAngularVelocity = 0;
+      activePathIndex = -1;
+      activePath = null;
+      nextPath = null;
+      return true;
+    }
+    // runMode.value = "plan"
+  }
+  return false
 }
+
 function updateGraphicsForExecutor(timeMilliSec: number) {
-  const elapsed = (timeMilliSec - previousTimeStamp) / 1000
+  const elapsed = (timeMilliSec - previousTimeStamp) / 1000;
   if (driveWheelAngularVelocity !== 0) {
     // console.debug(`Elapsed ${elapsed.toFixed(2)}, drive angular velocity ${driveWheelAngularVelocity}`)
     // console.debug(
     //   `Updating motor for angular gain ${driveWheelAngularVelocity * elapsed}`
     // );
     updateMotors(driveWheelAngularVelocity * elapsed);
-    updateGraphicsCommon()
-    checkExecutorProgress(elapsed)
+    updateGraphicsCommon();
+    if (!checkExecutorProgress(elapsed)) {
+      animationFrameHandle = requestAnimationFrame((t) =>
+        updateGraphicsForExecutor(t)
+      );
+    }
   }
-  animationFrameHandle = requestAnimationFrame((t) =>
-    updateGraphicsForExecutor(t)
-  );
   previousTimeStamp = timeMilliSec;
   renderer.render(scene, camera);
 }
@@ -732,7 +746,7 @@ function updateGraphicsCommon() {
 
 function updateGraphics(timeStamp: number) {
   run_geometric_integrator(timeStamp);
-  updateGraphicsCommon()
+  updateGraphicsCommon();
   animationFrameHandle = requestAnimationFrame((t) => updateGraphics(t));
   previousTimeStamp = timeStamp;
 

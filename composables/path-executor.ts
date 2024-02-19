@@ -1,13 +1,14 @@
 import { storeToRefs } from "pinia";
-import {
+import type {
   PathSegment,
   RotationPath,
-  TranslationPath,
-  usePGAStore,
+  TranslationPath
+} from "@/store/planner"
+  import {usePGAStore
 } from "~/store/pga-store";
 import Algebra from "ganja.js";
-import { GAElement } from "./pga";
-import { MathUtils } from "three/src/math/MathUtils";
+import type { GAElement } from "./pga";
+import { MathUtils } from "three";
 
 const {
   parsePGAPoint,
@@ -25,6 +26,8 @@ export function usePathExecutor(paths: Ref<Array<PathSegment>>) {
     usePGAStore()
   );
 
+
+  const selectedPath = ref(0)
   const UP_DIRECTION = makeDirection(0, 0, 1);
   const BIKE_INTERPOLATION_SPEED = 50; // inch/second
 
@@ -87,10 +90,11 @@ export function usePathExecutor(paths: Ref<Array<PathSegment>>) {
       // );
     }
   }
+
   function selectActivePath(n: number): GAElement {
     console.debug("Selecting active path", n);
     return setupPath(paths.value[n]);
   }
 
-  return { selectActivePath };
+  // return { selectedPath };
 }

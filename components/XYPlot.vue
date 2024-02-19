@@ -6,7 +6,7 @@
 <script setup lang="ts">
 
 import { storeToRefs } from "pinia";
-import { degToRad } from "three/src/math/MathUtils";
+import { MathUtils } from "three";
 import { useVisualStore } from "~/store/ui";
 const canvas2d: Ref<HTMLCanvasElement | null> = ref(null);
 const uiStore = useVisualStore();
@@ -33,8 +33,8 @@ watch([() => props.xValue, () => props.yValue], ([x, y], [oldX, oldY]) => {
     (x / 500) * canvas2d.value!.width/2,
     (y / 500) * canvas2d.value!.height/2,
     2,
-    degToRad(0),
-    degToRad(360),
+    MathUtils.degToRad(0),
+    MathUtils.degToRad(360),
     false
   );
   ctx.fill();
@@ -43,8 +43,8 @@ watch([() => props.xValue, () => props.yValue], ([x, y], [oldX, oldY]) => {
     (oldX / 500) * canvas2d.value!.width/2,
     (oldY / 500) * canvas2d.value!.height/2,
     2,
-    degToRad(0),
-    degToRad(360),
+    MathUtils.degToRad(0),
+    MathUtils.degToRad(360),
     false
   );
   ctx.fill();

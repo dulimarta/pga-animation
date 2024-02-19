@@ -64,19 +64,20 @@
   </div>
 </template>
 <script setup lang="ts">
-import {
+import type {
   PathSegment,
   RotationPath,
-  TranslationPath,
-  usePGAStore,
-} from "~/store/pga-store";
+  TranslationPath
+} from "@/store/planner"
+  import {usePGAStore} from "~/store/pga-store";
 import { storeToRefs } from "pinia";
 import { MathUtils, Mesh, TorusGeometry, Vector3 } from "three";
 import { useVisualComposable } from "~/composables/visual-factory";
 import Algebra from "ganja.js";
 import { useKeyModifier } from "@vueuse/core";
-import { GAElement } from "~/composables/pga";
-import {useVisualStore} from "~/store/ui"
+import type { GAElement } from "~/composables/pga";
+import { useVisualStore } from "~/store/ui"
+import { usePlannerStore } from "~/store/planner";
 const controlKey = useKeyModifier("Control", { events: ["mousemove"] });
 const altKey = useKeyModifier("Alt", { events: ["mousemove"] });
 
@@ -96,12 +97,13 @@ const {
 } = usePGA3D();
 const MARKER_LENGTH = 50;
 const PATH_THICKNESS = 2.5;
-const store = usePGAStore();
+const store = usePGAStore(); 
 const PGA2D = Algebra({ p: 2, q: 0, r: 1, graded: false });
 const PGA3D = Algebra({ p: 3, q: 0, r: 1, graded: false });
-const { bodyPosition, bodyRotation, bodyMotor, paths, rearHub } =
+const { bodyPosition, bodyRotation, bodyMotor, rearHub } =
   storeToRefs(store);
-const { selectActivePath } = usePathExecutor(paths);
+const plannerStore = usePlannerStore()
+const { paths, selectedPath} = storeToRefs(plannerStore)
 
 const { makeArrow, makeSphere, makePipe, makeArc } = useVisualComposable();
 const visualStore = useVisualStore()
@@ -110,9 +112,8 @@ const { visualScene, mousePositionOnGround, mouseWheelScrollAmount, runMode } =
 const debugText = ref("N/A");
 const initialOrientation = ref(0);
 const finalOrientation = ref(0);
-const useDoubleArcs = ref(false);
+const useDoubleArcs = ref(true);
 const useSharperTurns = ref(true);
-const selectedPath = ref(0);
 const tValue = ref(0);
 const parallelWarning = ref(false);
 const initialMarker = makeArrow(MARKER_LENGTH * 1.7, 4, "green");
@@ -127,7 +128,6 @@ const transitionSphere2 = makeSphere(8, "white");
 const transitionPipe = makePipe(1, PATH_THICKNESS, "white");
 const arcFromInitial = makeArc(1, PATH_THICKNESS, 90, "white");
 const arcToFinal = makeArc(1, PATH_THICKNESS, 90, "white");
-let motorInterpolator: GAElement | null = null;
 onMounted(() => {
   visualScene.value?.add(initialMarker);
   visualScene.value?.add(finalMarker);
@@ -186,6 +186,7 @@ watch(
 );
 
 watch(selectedPath, (sel: number) => {
+  console.debug(`Selected path changed to ${sel}`)
   const sx = paths.value[sel].startX;
   const sy = paths.value[sel].startY;
   tValue.value = 0;
@@ -193,7 +194,7 @@ watch(selectedPath, (sel: number) => {
   bodyPosition.value.y = sy;
   bodyRotation.value = -paths.value[sel].startHeading;
   rearHub.value = make3DPoint(sx, sy, 0);
-  motorInterpolator = selectActivePath(sel);
+  plannerStore.selectActivePath(sel);
 });
 
 let lastMouseWheelScrollAmount = 0;
@@ -225,17 +226,6 @@ watch(
   { deep: true }
 );
 
-function tValueChanged(t: number) {
-  console.debug(`Interpolating motion to ${t.toFixed(2)} `);
-  if (motorInterpolator !== null) {
-    const appliedMotor = lerp(motorInterpolator, t);
-    const rh = sandwich(appliedMotor, rearHub.value).Normalized;
-    bodyPosition.value.x = -rh.e023 / rh.e123;
-    bodyPosition.value.y = rh.e013 / rh.e123;
-  } else {
-    console.error("No motor available");
-  }
-}
 function withinPlusMinus180(x: number): number {
   while (x > 180) x -= 360;
   while (x < -180) x += 360;
@@ -1049,15 +1039,13 @@ function findBikePath() {
 
 function executePlan() {
   runMode.value = "autonomous";
-  // paths.value.forEach((s: PathSegment) => {
-  //   if (s.kind === 'Trans') {
-  //   } else if (s.kind == 'Rot') {
-
-  //   }
-  // })
 }
+
 function resetExecutor() {
+  console.debug("Reset Executor")
   runMode.value = "plan";
+  selectedPath.value = 0
+
 }
 </script>
 <style scoped>

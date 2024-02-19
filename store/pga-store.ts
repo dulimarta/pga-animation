@@ -2,28 +2,11 @@ import { defineStore } from "pinia";
 import { Vector2 } from "three";
 const { makeScalar, makePoint, makePlane } = usePGA3D();
 
-export type SegmentType = {
-  kind: "Rot" | "Trans" | "Final"; //| "Start";
-  startX: number,
-  startY: number
-  startHeading: number
-};
-export type RotationPath = SegmentType & {
-  // kind: SegmentType,
-  centerX: number;
-  centerY: number;
-  arcAngleDegree: number;
-  radius: number
-};
 
-export type TranslationPath = SegmentType & {
-  distance: number;
-};
 // type Terminal = SegmentType & {
 //   x: number;
 //   y: number;
 // };
-export type PathSegment = SegmentType | RotationPath | TranslationPath; //| Terminal;
 export const usePGAStore = defineStore("pga", () => {
   const steerDirection = ref(0); /* in radians */
   // const rigidRotationAngleDebug = ref(0)
@@ -36,8 +19,7 @@ export const usePGAStore = defineStore("pga", () => {
   const frontHub: Ref<GAElement> = ref(makePoint(0, 0, 0));
   const rearWheelPlane: Ref<GAElement> = ref(makePlane(1, 0, 0, 0));
   const frontWheelPlane: Ref<GAElement> = ref(makePlane(1, 0, 0, 10));
-  const paths: Ref<Array<PathSegment>> = ref([]);
-
+  
   return {
     steerDirection,
     bodyPosition,
@@ -48,7 +30,6 @@ export const usePGAStore = defineStore("pga", () => {
     rearHub,
     frontHub,
     rearWheelPlane,
-    frontWheelPlane,
-    paths,
+    frontWheelPlane
   };
 });
