@@ -48,6 +48,7 @@
     <v-btn class="ml-2" :disabled="paths.length === 0" @click="resetExecutor"
       >Restart</v-btn
     >
+    <v-btn class="ml-2" :disabled="paths.length === 0" @click="clearPaths">Clear</v-btn>
     <v-textarea label="Debugging output" v-model="debugText"></v-textarea>
     <!-- Snackbar timeout:-1 to keep it shown indefinitely -->
     <ul>
@@ -146,37 +147,10 @@ onMounted(() => {
   transitionSphere.position.z = -100;
   transitionPipe.position.z = -100;
   arcFromInitial.position.z = -100;
+  arcToFinal.position.z = -100;
   rotationPivot2Sphere.position.z = -100;
   transitionSphere2.position.z = -100;
 });
-
-// watch(
-//   () => runMode.value,
-//   (mode: "plan" | "manual-control" | "autonomous") => {
-//     if (mode === "manual-control") {
-//       // visualScene.value?.remove(initialMarker);
-//       // visualScene.value?.remove(finalMarker);
-//       // visualScene.value?.remove(transitionSphere);
-//       // visualScene.value?.remove(rotationPivotSphere);
-//       // visualScene.value?.remove(rotationPivot2Sphere);
-//       // visualScene.value?.remove(intersectionSphere);
-//       // visualScene.value?.remove(arcFromInitial);
-//       // visualScene.value?.remove(arcToFinal);
-//     } else {
-//       // visualScene.value?.add(arcFromInitial);
-//       // visualScene.value?.add(arcToFinal);
-//       // visualScene.value?.add(finalMarker);
-//       // visualScene.value?.add(initialMarker);
-//       // visualScene.value?.add(intersectionSphere);
-//       // visualScene.value?.add(rotationPivot2Sphere);
-//       // visualScene.value?.add(rotationPivot2Sphere);
-//       // visualScene.value?.add(rotationPivotSphere);
-//       // visualScene.value?.add(transitionSphere);
-//       // visualScene.value?.add(transitionSphere2);
-//       // initialMarker.rotation.z = -bodyRotation.value;
-//     }
-//   }
-// );
 
 watch(
   [() => useDoubleArcs.value, () => useSharperTurns.value],
@@ -1046,6 +1020,20 @@ function resetExecutor() {
   runMode.value = "plan";
   selectedPath.value = 0
 
+}
+function clearPaths() {
+  paths.value.splice(0);
+  initialMarker.position.z = -100;
+  finalMarker.position.z = -100;
+  intersectionSphere.position.z = -100;
+  rotationPivotSphere.position.z = -100;
+  transitionSphere.position.z = -100;
+  transitionPipe.position.z = -100;
+  arcFromInitial.position.z = -100;
+  arcToFinal.position.z = -100;
+  rotationPivot2Sphere.position.z = -100;
+  transitionSphere2.position.z = -100;
+  
 }
 </script>
 <style scoped>

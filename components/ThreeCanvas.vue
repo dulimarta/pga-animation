@@ -94,7 +94,7 @@ const {
   rearHub,
   frontHub,
   rearWheelPlane,
-  frontWheelPlane
+  frontWheelPlane,
 } = storeToRefs(PGAStore);
 const kinematicStore = useKinematicsStore();
 // const {steerVelocity} = storeToRefs(kinematicStore)
@@ -110,8 +110,8 @@ const {
   showGeometry,
   brakeApplied,
 } = storeToRefs(visualStore);
-const plannerStore = usePlannerStore()
-const {paths, selectedPath} = storeToRefs(plannerStore)
+const plannerStore = usePlannerStore();
+const { paths, selectedPath } = storeToRefs(plannerStore);
 const { animateCamera } = useAnimation(scene, camera);
 /*---------------------*
  * Kinematic variables *
@@ -252,14 +252,6 @@ watch(
         console.debug("Plane Helper position", frontPlaneHelper.position);
         steerDirection.value = 0;
         mysteeringFork.rotation.z = 0;
-        // frontWheelPlaneMesh.position.z = -1000;
-        // rearWheelPlaneMesh.position.z = -1000;
-        // frontPlaneHelper.size = 0;
-        // rearPlaneHelper.size = 0;
-
-        // if (showGeometry.value) removeVisualAccessories();
-        // camera.position.set(0, -500, 700);
-        // camera.lookAt(0, -200, 0);
         if (prevMode === "manual-control") {
           await animateCamera(
             new Vector3(-1.8 * WHEEL_RADIUS, -100, 63),
@@ -276,7 +268,18 @@ watch(
         // The path array should have at least two elements, the first
         // path and the end point
         console.debug("Generated path", paths.value);
-        initializeAutonomousMode();
+        if (paths.value.length > 1) {
+          activePathIndex = 0;
+          const WHEEL_SPEED_RPM = 20;
+          // Convert RPM to rads/second
+          driveWheelAngularVelocity = (WHEEL_SPEED_RPM * Math.PI) / 30;
+          activePath = paths.value[0];
+          nextPath = paths.value[1];
+          if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
+          configureGeometryForNewPath(activePath!);
+          scene.add(camera);
+        }
+
         previousTimeStamp = performance.now();
         updateGraphicsForExecutor(performance.now());
 
@@ -470,20 +473,6 @@ function initializeSteeringGeometry(
   ).Normalized;
 }
 
-function initializeAutonomousMode() {
-  if (paths.value.length > 1) {
-    activePathIndex = 0;
-    const WHEEL_SPEED_RPM = 20;
-    // Convert RPM to rads/second
-    driveWheelAngularVelocity = (WHEEL_SPEED_RPM * Math.PI) / 30;
-    activePath = paths.value[0];
-    nextPath = paths.value[1];
-    if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
-    configureGeometryForNewPath(activePath!);
-    scene.add(camera);
-  }
-}
-
 function removeVisualAccessories() {
   scene.remove(frontPlaneHelper);
   scene.remove(rearPlaneHelper);
@@ -673,7 +662,7 @@ function checkExecutorProgress(elapsed: number): boolean {
       // if (animationFrameHandle) cancelAnimationFrame(animationFrameHandle);
       activePath = nextPath;
       activePathIndex++;
-      selectedPath.value = activePathIndex
+      selectedPath.value = activePathIndex;
       nextPath = paths.value[activePathIndex + 1];
       configureGeometryForNewPath(activePath!);
       return false;
@@ -686,7 +675,7 @@ function checkExecutorProgress(elapsed: number): boolean {
     }
     // runMode.value = "plan"
   }
-  return false
+  return false;
 }
 
 function updateGraphicsForExecutor(timeMilliSec: number) {
