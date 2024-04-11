@@ -49,7 +49,7 @@
     <v-btn class="ml-2" :disabled="paths.length === 0" @click="resetExecutor"
       >Restart</v-btn
     >
-    <v-btn class="ml-2" :disabled="paths.length === 0" @click="clearPaths">Clear</v-btn>
+    <!--v-btn class="ml-2" :disabled="paths.length === 0" @click="clearPaths">Clear</v-btn-->
     <v-textarea label="Debugging output" v-model="debugText"></v-textarea>
     <!-- Snackbar timeout:-1 to keep it shown indefinitely -->
     <ul>
