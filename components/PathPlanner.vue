@@ -6,7 +6,8 @@
       <li>Move the mouse to change position</li>
       <li>Scroll the mouse wheel to change orientation</li>
       <li>
-        Hold the Shift-key (<v-icon>mdi-apple-keyboard-shift</v-icon>) to alter
+        Hold the Shift-key (<v-icon>mdi-apple-keyboard-shift</v-icon>) on Mac
+        or Ctrl-Key (<v-icon>mdi-apple-keyboard-control</v-icon>) on Windows to alter
         the initial pose
       </li>
       <li>
@@ -1032,8 +1033,7 @@ function clearPaths() {
   arcFromInitial.position.z = -100;
   arcToFinal.position.z = -100;
   rotationPivot2Sphere.position.z = -100;
-  transitionSphere2.position.z = -100;
-  
+  transitionSphere2.position.z = -100;  
 }
 </script>
 <style scoped>

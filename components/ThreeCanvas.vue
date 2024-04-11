@@ -302,7 +302,7 @@ watch(
 watch(
   [() => bodyPosition.value, () => bodyRotation.value],
   ([position, orientation]: [Vector2, number]) => {
-    console.debug("Body pos and orientation changed");
+    // console.debug("Body pos and orientation changed");
     if (runMode.value === "plan") {
       console.debug("this should not happen in execute mode");
       bodyMotor.value = makeScalar(1);
